@@ -1,0 +1,26 @@
+# ═══════════════════════════════════════════
+#          xdGens  -  config.yml
+# ═══════════════════════════════════════════
+
+# ── Weizenfeld ──────────────────────────────
+field:
+  world: world          # Name der Welt
+  center-x: 0          # Mittelpunkt X
+  center-z: 0          # Mittelpunkt Z
+  radius: 25           # Feld = (2*radius+1) x (2*radius+1) = 51x51 Blöcke
+  y: 64                # Y-Koordinate des Farmland-Blocks
+  regrow-delay-ticks: 100   # Wie lange bis Weizen nachwächst (20 Ticks = 1 Sek)
+
+# ── Weizen Rewards ──────────────────────────
+rewards:
+  wheat:
+    money:
+      min: 5.0
+      max: 20.0
+    tokens:
+      min: 1
+      max: 5
+    gems:
+      chance: 0.05     # 5% Chance pro Ernte
+      min: 1
+      max: 2
