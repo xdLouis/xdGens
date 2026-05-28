@@ -14,13 +14,9 @@ field:
 # ── Weizen Rewards ──────────────────────────
 rewards:
   wheat:
-    money:
-      min: 5.0
-      max: 20.0
     tokens:
       min: 1
       max: 5
-    gems:
-      chance: 0.05     # 5% Chance pro Ernte
-      min: 1
-      max: 2
+    xp:
+      min: 8.0
+      max: 16.0

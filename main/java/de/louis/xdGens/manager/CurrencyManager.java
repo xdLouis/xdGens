@@ -1,6 +1,7 @@
 package de.louis.xdGens.manager;
 
 import de.louis.xdGens.main.Main;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
@@ -10,72 +11,132 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Verwaltet Money, Tokens und Gems pro Spieler.
- * Daten werden in /plugins/xdGens/data/currencies.yml gespeichert.
- */
 public class CurrencyManager {
 
     private final Main plugin;
-    private final File dataFile;
-    private YamlConfiguration data;
+    private final Map<UUID, PlayerData> data = new HashMap<>();
 
-    // Cache: UUID → Werte
-    private final Map<UUID, Double> money  = new HashMap<>();
-    private final Map<UUID, Integer> tokens = new HashMap<>();
-    private final Map<UUID, Integer> gems   = new HashMap<>();
+    private File file;
+    private FileConfiguration config;
 
     public CurrencyManager(Main plugin) {
         this.plugin = plugin;
-        this.dataFile = new File(plugin.getDataFolder(), "data/currencies.yml");
-        load();
+        setup();
+        loadAll();
     }
 
-    // ── Laden & Speichern ──────────────────────────────────────────────────────
-
-    private void load() {
-        if (!dataFile.exists()) {
-            dataFile.getParentFile().mkdirs();
+    private void setup() {
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
         }
-        data = YamlConfiguration.loadConfiguration(dataFile);
+
+        file = new File(plugin.getDataFolder(), "currency.yml");
+        if (!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                plugin.getLogger().severe("Could not create currency.yml: " + e.getMessage());
+            }
+        }
+
+        config = YamlConfiguration.loadConfiguration(file);
+    }
+
+    private void loadAll() {
+        if (!config.isConfigurationSection("players")) {
+            return;
+        }
+
+        for (String key : config.getConfigurationSection("players").getKeys(false)) {
+            try {
+                UUID uuid = UUID.fromString(key);
+
+                double money = config.getDouble("players." + key + ".money", 0.0);
+                int tokens = config.getInt("players." + key + ".tokens", 0);
+
+                PlayerData playerData = new PlayerData();
+                playerData.money = money;
+                playerData.tokens = tokens;
+
+                data.put(uuid, playerData);
+            } catch (IllegalArgumentException ignored) {
+                plugin.getLogger().warning("Invalid UUID in currency.yml: " + key);
+            }
+        }
     }
 
     public void saveAll() {
-        // Schreibe Cache → YAML
-        money.forEach((uuid, val)  -> data.set(uuid + ".money",  val));
-        tokens.forEach((uuid, val) -> data.set(uuid + ".tokens", val));
-        gems.forEach((uuid, val)   -> data.set(uuid + ".gems",   val));
-        try { data.save(dataFile); } catch (IOException e) { e.printStackTrace(); }
+        config.set("players", null);
+
+        for (Map.Entry<UUID, PlayerData> entry : data.entrySet()) {
+            String path = "players." + entry.getKey();
+            PlayerData playerData = entry.getValue();
+
+            config.set(path + ".money", playerData.money);
+            config.set(path + ".tokens", playerData.tokens);
+        }
+
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save currency.yml: " + e.getMessage());
+        }
     }
 
-    // ── Getter ─────────────────────────────────────────────────────────────────
-
-    public double getMoney(Player p) {
-        return money.computeIfAbsent(p.getUniqueId(),
-            uuid -> data.getDouble(uuid + ".money", 0.0));
+    public double getMoney(Player player) {
+        return getOrCreate(player.getUniqueId()).money;
     }
 
-    public int getTokens(Player p) {
-        return tokens.computeIfAbsent(p.getUniqueId(),
-            uuid -> data.getInt(uuid + ".tokens", 0));
+    public int getTokens(Player player) {
+        return getOrCreate(player.getUniqueId()).tokens;
     }
 
-    public int getGems(Player p) {
-        return gems.computeIfAbsent(p.getUniqueId(),
-            uuid -> data.getInt(uuid + ".gems", 0));
+    public void addMoney(Player player, double amount) {
+        if (amount <= 0) return;
+        getOrCreate(player.getUniqueId()).money += amount;
+        updateScoreboard(player);
     }
 
-    // ── Adder ──────────────────────────────────────────────────────────────────
+    public boolean removeMoney(Player player, double amount) {
+        if (amount <= 0) return true;
 
-    public void addMoney(Player p, double amount) {
-        money.merge(p.getUniqueId(), amount, Double::sum);
+        PlayerData data = getOrCreate(player.getUniqueId());
+        if (data.money < amount) return false;
+
+        data.money -= amount;
+        updateScoreboard(player);
+        return true;
     }
 
-    public void addTokens(Player p, int amount) {
-        tokens.merge(p.getUniqueId(), amount, Integer::sum);
+    public void addTokens(Player player, int amount) {
+        if (amount <= 0) return;
+        getOrCreate(player.getUniqueId()).tokens += amount;
+        updateScoreboard(player);
     }
 
-    public void addGems(Player p, int amount) {
-        gems.merge(p.getUniqueId(), amount, Integer::sum);
+    public boolean removeTokens(Player player, int amount) {
+        if (amount <= 0) return true;
+
+        PlayerData data = getOrCreate(player.getUniqueId());
+        if (data.tokens < amount) return false;
+
+        data.tokens -= amount;
+        updateScoreboard(player);
+        return true;
+    }
+
+    private PlayerData getOrCreate(UUID uuid) {
+        return data.computeIfAbsent(uuid, ignored -> new PlayerData());
+    }
+
+    private void updateScoreboard(Player player) {
+        if (plugin.getScoreboardManager() != null) {
+            plugin.getScoreboardManager().update(player);
+        }
+    }
+
+    private static class PlayerData {
+        double money = 0.0;
+        int tokens = 0;
     }
 }
