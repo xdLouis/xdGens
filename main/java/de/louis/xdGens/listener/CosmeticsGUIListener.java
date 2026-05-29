@@ -53,7 +53,10 @@ public class CosmeticsGUIListener implements Listener {
                 case TAGS        -> mgr.setActiveTag(player, null);
                 case NAME_COLORS -> mgr.setActiveColor(player, null);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, null);
-                case GLOW        -> mgr.setActiveGlow(player, null);
+                case GLOW        -> {
+                    mgr.setActiveGlow(player, null);
+                    plugin.getGlowManager().removeGlow(player);
+                }
             }
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.8f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Removed active "
@@ -66,7 +69,6 @@ public class CosmeticsGUIListener implements Listener {
         int contentIdx = slotToContentIdx(slot);
         if (contentIdx < 0) return;
 
-        // rebuild same sorted list as GUI
         CrateReward.Type type = switch (tab) {
             case TAGS        -> CrateReward.Type.TAG;
             case NAME_COLORS -> CrateReward.Type.NAME_COLOR;
@@ -110,7 +112,10 @@ public class CosmeticsGUIListener implements Listener {
                 case TAGS        -> mgr.setActiveTag(player, null);
                 case NAME_COLORS -> mgr.setActiveColor(player, null);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, null);
-                case GLOW        -> mgr.setActiveGlow(player, null);
+                case GLOW        -> {
+                    mgr.setActiveGlow(player, null);
+                    plugin.getGlowManager().removeGlow(player);
+                }
             }
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.9f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Unequipped <white>"
@@ -120,11 +125,14 @@ public class CosmeticsGUIListener implements Listener {
                 case TAGS        -> mgr.setActiveTag(player, reward);
                 case NAME_COLORS -> mgr.setActiveColor(player, reward);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, reward);
-                case GLOW        -> mgr.setActiveGlow(player, reward);
+                case GLOW        -> {
+                    mgr.setActiveGlow(player, reward);
+                    plugin.getGlowManager().applyGlow(player);
+                }
             }
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.4f);
             String preview;
-            if (reward.isColor())         preview = reward.getCosmeticFormat().replace("{name}", player.getName());
+            if (reward.isColor())          preview = reward.getCosmeticFormat().replace("{name}", player.getName());
             else if (reward.isChatColor()) preview = reward.getCosmeticFormat().replace("{msg}", "Hello!");
             else if (reward.isGlow())      preview = "<yellow>✨ " + reward.getDisplayName() + "</yellow>";
             else                           preview = reward.getCosmeticFormat();

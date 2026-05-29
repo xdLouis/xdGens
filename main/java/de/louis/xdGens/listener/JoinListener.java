@@ -42,6 +42,10 @@ public class JoinListener implements Listener {
         if (plugin.getHoeUpgradeManager() != null) {
             plugin.getHoeUpgradeManager().applyHoeStats(player);
         }
+
+        if (plugin.getGlowManager() != null) {
+            plugin.getGlowManager().applyGlow(player);
+        }
     }
 
     @EventHandler
@@ -66,6 +70,10 @@ public class JoinListener implements Listener {
 
         if (plugin.getBackpackManager() != null) {
             plugin.getBackpackManager().savePlayer(player);
+        }
+
+        if (plugin.getGlowManager() != null) {
+            plugin.getGlowManager().removeGlow(player);
         }
     }
 }
