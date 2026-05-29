@@ -30,7 +30,6 @@ public class HoeUpgradeListener implements Listener {
         this.gui    = new HoeUpgradeGUI(plugin);
     }
 
-    // ── open main GUI on right-click ──────────────────────────────────────
     @EventHandler(priority = EventPriority.HIGH)
     public void onRightClick(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
@@ -55,7 +54,6 @@ public class HoeUpgradeListener implements Listener {
         gui.open(player);
     }
 
-    // ── inventory click ───────────────────────────────────────────────────
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -66,20 +64,18 @@ public class HoeUpgradeListener implements Listener {
             event.setCancelled(true);
             int slot = event.getSlot();
 
-            // Footer items are decorative—ignore them
             if (slot >= HoeUpgradeGUI.UPGRADE_SLOTS) return;
 
             ItemStack clicked = event.getCurrentItem();
             if (clicked == null || clicked.getType().isAir()
                     || clicked.getType() == Material.BLACK_STAINED_GLASS_PANE) return;
 
-            // Dispatch by slot (= index in buildUpgradeItems list)
             switch (slot) {
-                case HoeUpgradeGUI.SLOT_CROP  -> new HoeUpgradeAmountGUI(plugin, "crop").open(player);
-                case HoeUpgradeGUI.SLOT_XP    -> new HoeUpgradeAmountGUI(plugin, "xp").open(player);
-                case HoeUpgradeGUI.SLOT_TOKEN -> new HoeUpgradeAmountGUI(plugin, "token").open(player);
-                case HoeUpgradeGUI.SLOT_HOE   -> handleHoeUpgrade(player);
-                // Future upgrades: add cases here
+                case HoeUpgradeGUI.SLOT_CROP       -> new HoeUpgradeAmountGUI(plugin, "crop").open(player);
+                case HoeUpgradeGUI.SLOT_XP         -> new HoeUpgradeAmountGUI(plugin, "xp").open(player);
+                case HoeUpgradeGUI.SLOT_TOKEN      -> new HoeUpgradeAmountGUI(plugin, "token").open(player);
+                case HoeUpgradeGUI.SLOT_HOE        -> handleHoeUpgrade(player);
+                case HoeUpgradeGUI.SLOT_KEY_FINDER -> new HoeUpgradeAmountGUI(plugin, "keyfinder").open(player);
             }
             return;
         }
@@ -98,9 +94,10 @@ public class HoeUpgradeListener implements Listener {
             }
 
             String type;
-            if      (title.contains("Crop"))  type = "crop";
-            else if (title.contains("XP"))    type = "xp";
-            else                              type = "token";
+            if      (title.contains("Crop"))       type = "crop";
+            else if (title.contains("XP"))         type = "xp";
+            else if (title.contains("Key Finder")) type = "keyfinder";
+            else                                   type = "token";
 
             int amount;
             if      (slot == HoeUpgradeAmountGUI.SLOT_PLUS1)  amount = 1;
@@ -108,8 +105,18 @@ public class HoeUpgradeListener implements Listener {
             else if (slot == HoeUpgradeAmountGUI.SLOT_PLUS25) amount = 25;
             else if (slot == HoeUpgradeAmountGUI.SLOT_PLUS50) amount = 50;
             else if (slot == HoeUpgradeAmountGUI.SLOT_MAX) {
-                int max     = switch (type) { case "crop" -> HoeUpgradeManager.MAX_CROP_LEVEL; case "xp" -> HoeUpgradeManager.MAX_XP_LEVEL; default -> HoeUpgradeManager.MAX_TOKEN_LEVEL; };
-                int current = switch (type) { case "crop" -> plugin.getHoeUpgradeManager().getCropLevel(player); case "xp" -> plugin.getHoeUpgradeManager().getXpLevel(player); default -> plugin.getHoeUpgradeManager().getTokenLevel(player); };
+                int max     = switch (type) {
+                    case "crop"      -> HoeUpgradeManager.MAX_CROP_LEVEL;
+                    case "xp"        -> HoeUpgradeManager.MAX_XP_LEVEL;
+                    case "keyfinder" -> HoeUpgradeManager.MAX_KEY_FINDER_LEVEL;
+                    default          -> HoeUpgradeManager.MAX_TOKEN_LEVEL;
+                };
+                int current = switch (type) {
+                    case "crop"      -> plugin.getHoeUpgradeManager().getCropLevel(player);
+                    case "xp"        -> plugin.getHoeUpgradeManager().getXpLevel(player);
+                    case "keyfinder" -> plugin.getHoeUpgradeManager().getKeyFinderLevel(player);
+                    default          -> plugin.getHoeUpgradeManager().getTokenLevel(player);
+                };
                 amount = max - current;
             } else return;
 
@@ -127,9 +134,10 @@ public class HoeUpgradeListener implements Listener {
         HoeUpgradeManager mgr = plugin.getHoeUpgradeManager();
 
         int bought = switch (type) {
-            case "crop"  -> mgr.upgradeCropBulk(player,  requestedAmount);
-            case "xp"    -> mgr.upgradeXpBulk(player,    requestedAmount);
-            default      -> mgr.upgradeTokenBulk(player, requestedAmount);
+            case "crop"      -> mgr.upgradeCropBulk(player, requestedAmount);
+            case "xp"        -> mgr.upgradeXpBulk(player, requestedAmount);
+            case "keyfinder" -> mgr.upgradeKeyFinderBulk(player, requestedAmount);
+            default          -> mgr.upgradeTokenBulk(player, requestedAmount);
         };
 
         if (bought <= 0) {
@@ -139,19 +147,22 @@ public class HoeUpgradeListener implements Listener {
         }
 
         int newLevel = switch (type) {
-            case "crop"  -> mgr.getCropLevel(player);
-            case "xp"    -> mgr.getXpLevel(player);
-            default      -> mgr.getTokenLevel(player);
+            case "crop"      -> mgr.getCropLevel(player);
+            case "xp"        -> mgr.getXpLevel(player);
+            case "keyfinder" -> mgr.getKeyFinderLevel(player);
+            default          -> mgr.getTokenLevel(player);
         };
         String grad = switch (type) {
-            case "crop"  -> "<gradient:#f6d365:#fda085>";
-            case "xp"    -> "<gradient:#7afcff:#00c2ff>";
-            default      -> "<gradient:#ffd86f:#fc6262>";
+            case "crop"      -> "<gradient:#f6d365:#fda085>";
+            case "xp"        -> "<gradient:#7afcff:#00c2ff>";
+            case "keyfinder" -> "<gradient:#a18cd1:#fbc2eb>";
+            default          -> "<gradient:#ffd86f:#fc6262>";
         };
         String name = switch (type) {
-            case "crop"  -> "Crop Harvest";
-            case "xp"    -> "XP Boost";
-            default      -> "Token Boost";
+            case "crop"      -> "Crop Harvest";
+            case "xp"        -> "XP Boost";
+            case "keyfinder" -> "Key Finder";
+            default          -> "Token Boost";
         };
 
         String partial = bought < requestedAmount
@@ -171,8 +182,8 @@ public class HoeUpgradeListener implements Listener {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gold>Hoe is already max level!</gold>");
             return;
         }
-        long cost  = mgr.getHoeCost(mgr.getHoeLevel(player) + 1);
-        double bal = plugin.getCurrencyManager().getMoney(player);
+        long   cost = mgr.getHoeCost(mgr.getHoeLevel(player) + 1);
+        double bal  = plugin.getCurrencyManager().getMoney(player);
         if (bal < cost) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
                     + " <red>Not enough money. Need: <white>$" + NumberUtil.format(cost) + "</white></red>");

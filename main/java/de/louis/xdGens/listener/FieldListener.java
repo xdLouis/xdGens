@@ -85,6 +85,16 @@ public class FieldListener implements Listener {
         plugin.getProgressionManager().addXp(player, finalXp);
         plugin.getActionBarManager().addHarvest(player, Math.toIntExact(finalTokens), finalXp);
 
+        // ── Key Finder: try to drop a random crate key ────────────────────
+        if (plugin.getHoeUpgradeManager().getKeyFinderLevel(player) > 0) {
+            boolean dropped = plugin.getCrateManager().tryGiveRandomKey(player);
+            if (dropped) {
+                MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                        + " <gradient:#a18cd1:#fbc2eb>🔑 You found a Crate Key!</gradient>"
+                        + " <gray>Check /crates to open it.</gray>");
+            }
+        }
+
         scheduleRegrow(block);
     }
 
