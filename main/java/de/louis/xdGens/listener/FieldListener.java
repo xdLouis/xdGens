@@ -39,7 +39,7 @@ public class FieldListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        Block block = event.getBlock();
+        Block  block  = event.getBlock();
 
         if (player.getGameMode() == GameMode.CREATIVE || block.getType() != Material.WHEAT) return;
 
@@ -57,24 +57,19 @@ public class FieldListener implements Listener {
         event.setDropItems(false);
         event.setExpToDrop(0);
 
-        int tokenMin = plugin.getConfig().getInt("rewards.wheat.tokens.min", 1);
-        int tokenMax = plugin.getConfig().getInt("rewards.wheat.tokens.max", 5);
-        double xpMin = plugin.getConfig().getDouble("rewards.wheat.xp.min", 8.0);
-        double xpMax = plugin.getConfig().getDouble("rewards.wheat.xp.max", 16.0);
+        int    tokenMin = plugin.getConfig().getInt("rewards.wheat.tokens.min", 1);
+        int    tokenMax = plugin.getConfig().getInt("rewards.wheat.tokens.max", 5);
+        double xpMin    = plugin.getConfig().getDouble("rewards.wheat.xp.min", 8.0);
+        double xpMax    = plugin.getConfig().getDouble("rewards.wheat.xp.max", 16.0);
 
-        int baseTokens = Rng.between(tokenMin, tokenMax);
-        long finalTokens = Math.round(baseTokens * plugin.getHoeUpgradeManager().getTokenMultiplier(player));
-        double finalXp = Rng.between(xpMin, xpMax) * plugin.getHoeUpgradeManager().getXpMultiplier(player);
+        int    baseTokens  = Rng.between(tokenMin, tokenMax);
+        long   finalTokens = Math.round(baseTokens * plugin.getHoeUpgradeManager().getTokenMultiplier(player));
+        double finalXp     = Rng.between(xpMin, xpMax) * plugin.getHoeUpgradeManager().getXpMultiplier(player);
 
         int totalCrops = 1 + plugin.getHoeUpgradeManager().getCropBonus(player);
-
-        int stored = plugin.getBackpackManager().addWheat(player, totalCrops);
-        int remaining = totalCrops - stored;
-
-        if (stored > 0) {
-            plugin.getBackpackManager().savePlayer(player);
-        }
-
+        int stored     = plugin.getBackpackManager().addWheat(player, totalCrops);
+        int remaining  = totalCrops - stored;
+        if (stored > 0) plugin.getBackpackManager().savePlayer(player);
         if (remaining > 0) {
             ItemStack cropReward = CustomItemUtil.createFarmWheat(plugin, remaining);
             var leftovers = player.getInventory().addItem(cropReward);
@@ -85,13 +80,12 @@ public class FieldListener implements Listener {
         plugin.getProgressionManager().addXp(player, finalXp);
         plugin.getActionBarManager().addHarvest(player, Math.toIntExact(finalTokens), finalXp);
 
-        // ── Key Finder: try to drop a random crate key ────────────────────
+        // ── Key Finder: grant virtual key (no physical item) ─────────────
         if (plugin.getHoeUpgradeManager().getKeyFinderLevel(player) > 0) {
-            boolean dropped = plugin.getCrateManager().tryGiveRandomKey(player);
-            if (dropped) {
+            boolean found = plugin.getCrateManager().tryGiveRandomKey(player);
+            if (found) {
                 MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                        + " <gradient:#a18cd1:#fbc2eb>🔑 You found a Crate Key!</gradient>"
-                        + " <gray>Check /crates to open it.</gray>");
+                        + " <gradient:#a18cd1:#fbc2eb>\uD83D\uDD11 Key found! Open it in <white>/crates</white>.</gradient>");
             }
         }
 
@@ -133,7 +127,6 @@ public class FieldListener implements Listener {
             if (block.getType() == Material.AIR || block.getType() == Material.WHEAT) {
                 block.setType(Material.WHEAT);
                 FieldManager.setWheatFullyGrown(block);
-
                 Block farmland = block.getRelative(0, -1, 0);
                 if (farmland.getType() != Material.FARMLAND) farmland.setType(Material.FARMLAND);
                 FieldManager.moisturizeFarmland(farmland);

@@ -2,7 +2,6 @@ package de.louis.xdGens.gui;
 
 import de.louis.xdGens.crate.CrateType;
 import de.louis.xdGens.main.Main;
-import de.louis.xdGens.manager.PouchKeyItem;
 import de.louis.xdGens.util.MessageUtil;
 import de.louis.xdGens.util.NumberUtil;
 import net.kyori.adventure.text.Component;
@@ -18,9 +17,29 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * /crates GUI  —  3 rows (27 slots)
+ *
+ * Row 0+2: filler
+ * Row 1 (slots 9-17):
+ *   9  – filler
+ *   10-14 – one slot per CrateType (COMMON→LEGENDARY)
+ *   15 – filler
+ *   16 – Key Finder info
+ *   17 – filler
+ *
+ * When a crate item is clicked:
+ *   LEFT  click → open 1 key
+ *   RIGHT click → open ALL keys of that type
+ */
 public class CratesGUI {
 
     public static final String TITLE = "🎁 Crates";
+
+    // crate slots (index = CrateType.ordinal())
+    public static final int[] CRATE_SLOTS = {10, 11, 12, 13, 14};
+    public static final int   SLOT_INFO   = 16;
+
     private final Main plugin;
 
     public CratesGUI(Main plugin) {
@@ -28,33 +47,47 @@ public class CratesGUI {
     }
 
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, MessageUtil.parse("<gradient:#a18cd1:#fbc2eb><bold>🎁 Crates</bold></gradient>"));
-        fill(inv, Material.BLACK_STAINED_GLASS_PANE);
+        Inventory inv = Bukkit.createInventory(
+                null, 27,
+                MessageUtil.parse("<gradient:#a18cd1:#fbc2eb><bold>\uD83C\uDF81 Crates</bold></gradient>")
+        );
+        fill(inv);
 
-        int slot = 10;
-        for (CrateType type : CrateType.values()) {
-            inv.setItem(slot++, buildCrateItem(player, type));
+        CrateType[] types = CrateType.values();
+        for (int i = 0; i < types.length && i < CRATE_SLOTS.length; i++) {
+            inv.setItem(CRATE_SLOTS[i], buildCrateItem(player, types[i]));
         }
+        inv.setItem(SLOT_INFO, buildInfoItem(player));
 
-        inv.setItem(22, buildInfoItem(player));
         player.openInventory(inv);
     }
 
+    // ── item builders ────────────────────────────────────────────────────
+
     private ItemStack buildCrateItem(Player player, CrateType type) {
-        int amount = countKeys(player, type);
+        int amount = plugin.getVirtualKeyManager().getKeys(player, type);
+
         ItemStack item = new ItemStack(type.getIcon());
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(MessageUtil.parse(type.getGradient() + "<bold>✦ " + type.getDisplayName() + " Crate ✦</bold></gradient>"));
+        ItemMeta  meta = item.getItemMeta();
+        meta.displayName(MessageUtil.parse(
+                type.getGradient() + "<bold>\u2746 " + type.getDisplayName() + " Crate \u2746</bold></gradient>"
+        ));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
-        lore.add(MessageUtil.parse("<gray>Your keys: <white>" + amount + "</white>"));
-        lore.add(MessageUtil.parse("<gray>Rewards: <white>Money, XP, Tokens Pouches</white>"));
+        lore.add(MessageUtil.parse("<gray>Your keys: " + (amount > 0 ? "<white>" : "<red>") + amount + (amount > 0 ? "</white>" : "</red>")));
+        lore.add(MessageUtil.parse("<gray>Rewards: <white>Money, XP, Tokens + Cosmetics</white>"));
         lore.add(Component.empty());
-        lore.add(amount > 0
-                ? MessageUtil.parse("<green>▶ Click to open one key")
-                : MessageUtil.parse("<red>✘ You don't own this key"));
+        if (amount > 0) {
+            lore.add(MessageUtil.parse("<green>\u25b6 Left-click to open <white>1</white> key"));
+            if (amount > 1) {
+                lore.add(MessageUtil.parse("<gold>\u25b6 Right-click to open <white>all " + amount + "</white> keys"));
+            }
+        } else {
+            lore.add(MessageUtil.parse("<red>\u2718 No keys — break wheat to find some"));
+        }
         meta.lore(lore);
+
         if (amount > 0) {
             meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
@@ -66,35 +99,37 @@ public class CratesGUI {
 
     private ItemStack buildInfoItem(Player player) {
         ItemStack item = new ItemStack(Material.BOOK);
-        ItemMeta meta = item.getItemMeta();
+        ItemMeta  meta = item.getItemMeta();
         meta.displayName(MessageUtil.parse("<gradient:#a18cd1:#fbc2eb><bold>Key Finder</bold></gradient>"));
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
-        lore.add(MessageUtil.parse("<gray>Level: <white>" + plugin.getHoeUpgradeManager().getKeyFinderLevel(player) + "</white><dark_gray>/1000"));
-        lore.add(MessageUtil.parse("<gray>Chance: <gold>" + NumberUtil.format(plugin.getHoeUpgradeManager().getKeyFinderChance(player) * 100.0) + "%</gold> per wheat break"));
+        lore.add(MessageUtil.parse("<gray>Level: <white>"
+                + plugin.getHoeUpgradeManager().getKeyFinderLevel(player)
+                + "</white><dark_gray>/1000"));
+        lore.add(MessageUtil.parse("<gray>Chance: <gold>"
+                + NumberUtil.format(plugin.getHoeUpgradeManager().getKeyFinderChance(player) * 100.0)
+                + "%</gold> per wheat break"));
         lore.add(Component.empty());
-        lore.add(MessageUtil.parse("<dark_gray>Even at level 1000 keys stay a bit rare."));
+        lore.add(MessageUtil.parse("<dark_gray>Keys go into this menu — not your inventory."));
+        lore.add(MessageUtil.parse("<dark_gray>Crates can also drop chat tags \u0026 colors!"));
         meta.lore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
 
-    private int countKeys(Player player, CrateType type) {
-        int count = 0;
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (!PouchKeyItem.isKey(plugin, item)) continue;
-            CrateType found = PouchKeyItem.getCrateType(plugin, item);
-            if (found == type) count += item.getAmount();
-        }
-        return count;
+    // ── helpers ──────────────────────────────────────────────────────────
+
+    private void fill(Inventory inv) {
+        ItemStack pane = pane(Material.BLACK_STAINED_GLASS_PANE);
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, pane.clone());
     }
 
-    private void fill(Inventory inv, Material material) {
-        ItemStack pane = new ItemStack(material);
-        ItemMeta meta = pane.getItemMeta();
-        meta.displayName(Component.empty());
-        pane.setItemMeta(meta);
-        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, pane.clone());
+    private ItemStack pane(Material mat) {
+        ItemStack p = new ItemStack(mat);
+        ItemMeta  m = p.getItemMeta();
+        m.displayName(Component.empty());
+        p.setItemMeta(m);
+        return p;
     }
 }
