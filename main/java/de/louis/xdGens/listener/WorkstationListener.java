@@ -31,35 +31,21 @@ public class WorkstationListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        if (!CustomItemUtil.isWorkstationItem(plugin, event.getItemInHand())) {
-            return;
-        }
-
+        if (!CustomItemUtil.isWorkstationItem(plugin, event.getItemInHand())) return;
         workstationManager.register(event.getBlockPlaced().getLocation());
-
-        MessageUtil.sendRaw(event.getPlayer(),
-                MessageUtil.PREFIX + " <gray>Workstation placed and saved.</gray>");
+        MessageUtil.sendRaw(event.getPlayer(), MessageUtil.PREFIX + " <gray>Workstation placed.</gray>");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
-
-        if (block.getType() != Material.SMITHING_TABLE) {
-            return;
-        }
-
-        if (!workstationManager.isWorkstation(block.getLocation())) {
-            return;
-        }
-
+        if (block.getType() != Material.SMITHING_TABLE) return;
+        if (!workstationManager.isWorkstation(block.getLocation())) return;
         event.setDropItems(false);
         workstationManager.unregister(block.getLocation());
-
         block.getWorld().dropItemNaturally(
                 block.getLocation().clone().add(0.5, 0.5, 0.5),
-                CustomItemUtil.createWorkstationItem(plugin)
-        );
+                CustomItemUtil.createWorkstationItem(plugin));
     }
 
     @EventHandler
@@ -73,24 +59,18 @@ public class WorkstationListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    // Priority NORMAL + ignoreCancelled=false so vanilla SmithingTable GUI open
+    // gets cancelled by us regardless of other event handlers
+    @EventHandler(priority = EventPriority.NORMAL)
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock() == null) {
-            return;
-        }
+        if (event.getClickedBlock() == null) return;
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         Block block = event.getClickedBlock();
-        if (block.getType() != Material.SMITHING_TABLE) {
-            return;
-        }
-
-        if (!workstationManager.isWorkstation(block.getLocation())) {
-            return;
-        }
+        if (block.getType() != Material.SMITHING_TABLE) return;
+        if (!workstationManager.isWorkstation(block.getLocation())) return;
 
         event.setCancelled(true);
-
-        Player player = event.getPlayer();
-        workstationManager.useWorkstation(player);
+        workstationManager.useWorkstation(event.getPlayer());
     }
 }

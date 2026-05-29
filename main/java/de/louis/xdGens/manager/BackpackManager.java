@@ -16,11 +16,11 @@ import java.util.UUID;
 
 public class BackpackManager {
 
-    private static final int BASE_CAPACITY = 1000;
+    private static final int BASE_CAPACITY      = 1000;
     private static final int CAPACITY_PER_LEVEL = 1000;
-    private static final int MAX_LEVEL = 25;
+    private static final int MAX_LEVEL          = 25;
     private static final double BASE_UPGRADE_COST = 25000.0;
-    private static final double COST_MULTIPLIER = 1.35;
+    private static final double COST_MULTIPLIER   = 1.35;
 
     private final Main plugin;
     private final Map<UUID, BackpackData> data = new HashMap<>();
@@ -36,7 +36,8 @@ public class BackpackManager {
     private void setup() {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
         file = new File(plugin.getDataFolder(), "backpacks.yml");
-        try { if (!file.exists()) file.createNewFile(); } catch (IOException e) { plugin.getLogger().severe("Could not create backpacks.yml: " + e.getMessage()); }
+        try { if (!file.exists()) file.createNewFile(); }
+        catch (IOException e) { plugin.getLogger().severe("Could not create backpacks.yml: " + e.getMessage()); }
         config = YamlConfiguration.loadConfiguration(file);
     }
 
@@ -48,7 +49,6 @@ public class BackpackManager {
                 BackpackData b = new BackpackData();
                 b.level = Math.max(0, Math.min(MAX_LEVEL, config.getInt("players." + key + ".level", 0)));
                 b.wheat = Math.max(0, config.getInt("players." + key + ".wheat", 0));
-                b.money = Math.max(0.0, config.getDouble("players." + key + ".money", 0.0));
                 data.put(uuid, b);
             } catch (IllegalArgumentException ignored) {}
         }
@@ -60,9 +60,9 @@ public class BackpackManager {
             String path = "players." + e.getKey();
             config.set(path + ".level", e.getValue().level);
             config.set(path + ".wheat", e.getValue().wheat);
-            config.set(path + ".money", e.getValue().money);
         }
-        try { config.save(file); } catch (IOException e) { plugin.getLogger().severe("Could not save backpacks.yml: " + e.getMessage()); }
+        try { config.save(file); }
+        catch (IOException e) { plugin.getLogger().severe("Could not save backpacks.yml: " + e.getMessage()); }
     }
 
     public void savePlayer(Player player) {
@@ -70,16 +70,15 @@ public class BackpackManager {
         String path = "players." + player.getUniqueId();
         config.set(path + ".level", b.level);
         config.set(path + ".wheat", b.wheat);
-        config.set(path + ".money", b.money);
-        try { config.save(file); } catch (IOException e) { plugin.getLogger().severe("Could not save backpack: " + e.getMessage()); }
+        try { config.save(file); }
+        catch (IOException e) { plugin.getLogger().severe("Could not save backpack: " + e.getMessage()); }
     }
 
-    public int getLevel(Player player) { return getOrCreate(player.getUniqueId()).level; }
-    public int getStoredWheat(Player player) { return getOrCreate(player.getUniqueId()).wheat; }
-    public double getStoredMoney(Player player) { return getOrCreate(player.getUniqueId()).money; }
-    public int getCapacity(Player player) { return BASE_CAPACITY + (getLevel(player) * CAPACITY_PER_LEVEL); }
-    public int getFreeSpace(Player player) { return Math.max(0, getCapacity(player) - getStoredWheat(player)); }
-    public boolean canUpgrade(Player player) { return getLevel(player) < MAX_LEVEL; }
+    public int     getLevel(Player player)       { return getOrCreate(player.getUniqueId()).level; }
+    public int     getStoredWheat(Player player)  { return getOrCreate(player.getUniqueId()).wheat; }
+    public int     getCapacity(Player player)     { return BASE_CAPACITY + (getLevel(player) * CAPACITY_PER_LEVEL); }
+    public int     getFreeSpace(Player player)    { return Math.max(0, getCapacity(player) - getStoredWheat(player)); }
+    public boolean canUpgrade(Player player)      { return getLevel(player) < MAX_LEVEL; }
 
     public double getUpgradeCost(Player player) {
         int target = getLevel(player) + 1;
@@ -99,6 +98,7 @@ public class BackpackManager {
 
     public int addWheat(Player player, int amount) {
         if (amount <= 0) return 0;
+        if (!playerHasItem(player)) return 0;
         BackpackData b = getOrCreate(player.getUniqueId());
         int added = Math.min(getCapacity(player) - b.wheat, amount);
         if (added > 0) b.wheat += added;
@@ -113,40 +113,23 @@ public class BackpackManager {
         return removed;
     }
 
-    public double addMoney(Player player, double amount) {
-        if (amount <= 0) return 0.0;
-        BackpackData b = getOrCreate(player.getUniqueId());
-        b.money += amount;
-        return amount;
-    }
-
-    public double removeMoney(Player player, double amount) {
-        if (amount <= 0) return 0.0;
-        BackpackData b = getOrCreate(player.getUniqueId());
-        double removed = Math.min(b.money, amount);
-        b.money -= removed;
-        return removed;
-    }
-
-    public int sellContents(Player player) {
-        BackpackData b = getOrCreate(player.getUniqueId());
-        int wheat = b.wheat;
-        if (wheat <= 0 && b.money <= 0) return 0;
-        double price = wheat * plugin.getConfig().getDouble("sell.wheat.price", 2.0);
-        price += b.money;
-        b.wheat = 0;
-        b.money = 0.0;
-        plugin.getCurrencyManager().addMoney(player, price);
-        savePlayer(player);
-        plugin.getCurrencyManager().savePlayer(player);
-        return wheat;
-    }
-
     public ItemStack createItem(Player player) { return CustomItemUtil.createBackpackItem(plugin, player); }
 
-    public Inventory createInventory(Player player) { return new BackpackGUI(plugin, player).create(); }
+    public Inventory createInventory(Player player) {
+        return new de.louis.xdGens.gui.BackpackGUI(plugin, player).create();
+    }
+
+    public boolean playerHasItem(Player player) {
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (CustomItemUtil.isBackpack(plugin, item)) return true;
+        }
+        return false;
+    }
 
     private BackpackData getOrCreate(UUID uuid) { return data.computeIfAbsent(uuid, k -> new BackpackData()); }
 
-    public static class BackpackData { int level; int wheat; double money; }
+    public static class BackpackData {
+        int level;
+        int wheat;
+    }
 }
