@@ -15,14 +15,12 @@ import java.util.UUID;
 /**
  * Applies entity-glow to players using scoreboard teams.
  *
- * The team MUST live on the same Scoreboard the player currently has assigned.
- * This plugin gives each player a private Scoreboard via ScoreboardManager,
- * so we always fetch the board from there.
- *
- * Special color keys:
+ * Special color keys (cycling):
  *   PRISMATIC → cycles all 8 rainbow colors
  *   INFERNO   → cycles DARK_RED / GOLD / RED
  *   VOID      → cycles BLACK / DARK_GRAY / DARK_PURPLE
+ *   AURORA    → cycles AQUA / GREEN / LIGHT_PURPLE / BLUE
+ *   DIVINE    → cycles WHITE / YELLOW / GOLD
  */
 public class GlowManager {
 
@@ -31,8 +29,18 @@ public class GlowManager {
         ChatColor.GREEN, ChatColor.AQUA, ChatColor.BLUE,
         ChatColor.LIGHT_PURPLE, ChatColor.WHITE
     };
-    private static final ChatColor[] INFERNO_COLORS = { ChatColor.DARK_RED, ChatColor.GOLD, ChatColor.RED };
-    private static final ChatColor[] VOID_COLORS    = { ChatColor.BLACK, ChatColor.DARK_GRAY, ChatColor.DARK_PURPLE };
+    private static final ChatColor[] INFERNO_COLORS = {
+        ChatColor.DARK_RED, ChatColor.GOLD, ChatColor.RED
+    };
+    private static final ChatColor[] VOID_COLORS = {
+        ChatColor.BLACK, ChatColor.DARK_GRAY, ChatColor.DARK_PURPLE
+    };
+    private static final ChatColor[] AURORA_COLORS = {
+        ChatColor.AQUA, ChatColor.GREEN, ChatColor.LIGHT_PURPLE, ChatColor.BLUE
+    };
+    private static final ChatColor[] DIVINE_COLORS = {
+        ChatColor.WHITE, ChatColor.YELLOW, ChatColor.GOLD
+    };
 
     private static final String TEAM_PREFIX = "glow_";
 
@@ -46,9 +54,8 @@ public class GlowManager {
 
     // ── public API ───────────────────────────────────────────────
 
-    /** Apply the player’s currently equipped glow. Call on equip + on join. */
     public void applyGlow(Player player) {
-        removeGlow(player); // clean up first
+        removeGlow(player);
 
         String colorKey = plugin.getPlayerCosmeticManager().getGlowColor(player);
         if (colorKey == null) return;
@@ -59,18 +66,18 @@ public class GlowManager {
             case "PRISMATIC" -> startCycling(player, PRISMATIC_COLORS);
             case "INFERNO"   -> startCycling(player, INFERNO_COLORS);
             case "VOID"      -> startCycling(player, VOID_COLORS);
+            case "AURORA"    -> startCycling(player, AURORA_COLORS);
+            case "DIVINE"    -> startCycling(player, DIVINE_COLORS);
             default          -> applyStaticColor(player, colorKey);
         }
     }
 
-    /** Remove glow entirely. Call on unequip + on quit. */
     public void removeGlow(Player player) {
         stopCycling(player);
         player.setGlowing(false);
         clearTeam(player);
     }
 
-    /** Stop all cycling tasks. Call on plugin disable. */
     public void shutdown() {
         cyclingTasks.values().forEach(BukkitTask::cancel);
         cyclingTasks.clear();
@@ -81,7 +88,10 @@ public class GlowManager {
 
     private void applyStaticColor(Player player, String colorKey) {
         ChatColor color = parseChatColor(colorKey);
-        if (color == null) return;
+        if (color == null) {
+            // Unknown key – fall back to WHITE so the glow at least shows
+            color = ChatColor.WHITE;
+        }
         setTeamColor(player, color);
     }
 
@@ -107,10 +117,6 @@ public class GlowManager {
         cycleIndex.remove(uuid);
     }
 
-    /**
-     * Sets the team color on the Scoreboard the player currently has assigned.
-     * This is critical: the team must live on the player’s own board, not the main scoreboard.
-     */
     private void setTeamColor(Player player, ChatColor color) {
         Scoreboard board = resolveBoard(player);
         String teamName  = teamName(player);
@@ -123,7 +129,6 @@ public class GlowManager {
     }
 
     private void clearTeam(Player player) {
-        // Clear on the player's current board
         Scoreboard board = resolveBoard(player);
         Team team = board.getTeam(teamName(player));
         if (team != null) {
@@ -132,11 +137,6 @@ public class GlowManager {
         }
     }
 
-    /**
-     * Returns the Scoreboard the player is currently using.
-     * Prefers the private board from ScoreboardManager (which is what they’re actually watching),
-     * falls back to the main scoreboard if none is set yet.
-     */
     private Scoreboard resolveBoard(Player player) {
         ScoreboardManager sbm = plugin.getScoreboardManager();
         if (sbm != null) {
@@ -146,10 +146,9 @@ public class GlowManager {
         return Bukkit.getScoreboardManager().getMainScoreboard();
     }
 
-    /** Short stable team name derived from the UUID (max 16 chars). */
     private String teamName(Player player) {
         String uuid = player.getUniqueId().toString().replace("-", "");
-        return (TEAM_PREFIX + uuid).substring(0, 16); // team names max 16 chars in 1.21
+        return (TEAM_PREFIX + uuid).substring(0, 16);
     }
 
     private ChatColor parseChatColor(String key) {
