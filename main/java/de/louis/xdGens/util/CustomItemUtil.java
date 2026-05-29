@@ -91,7 +91,7 @@ public class CustomItemUtil {
             PlayerTextures textures = profile.getTextures();
             textures.setSkin(new URL(BACKPACK_SKULL_URL));
             profile.setTextures(textures);
-            meta.setPlayerProfile(profile);
+            meta.setPlayerProfile((com.destroystokyo.paper.profile.PlayerProfile) profile);
         } catch (MalformedURLException e) {
             // Fallback: plain player head without texture
         }

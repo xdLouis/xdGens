@@ -44,10 +44,10 @@ public class TestFieldCommand implements CommandExecutor, TabExecutor {
             }
         }
 
-        if (radius < 1 || radius > 200) {
-            MessageUtil.send(player, MessageUtil.ERROR + "Radius muss zwischen 1 und 200 liegen." + MessageUtil.CLOSE);
-            return true;
-        }
+        //if (radius < 1 || radius > 200) {
+        //            MessageUtil.send(player, MessageUtil.ERROR + "Radius muss zwischen 1 und 200 liegen." + MessageUtil.CLOSE);
+        //            return true;
+        //        }
 
         int centerX = player.getLocation().getBlockX();
         int centerZ = player.getLocation().getBlockZ();
