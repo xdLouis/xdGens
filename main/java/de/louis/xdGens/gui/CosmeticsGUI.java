@@ -24,18 +24,21 @@ import java.util.Set;
  *   Slot 0 = Tags
  *   Slot 1 = Name Colors
  *   Slot 2 = Chat Colors
+ *   Slot 3 = Glow
  *   Slot 8 = Unequip
  */
 public class CosmeticsGUI {
 
-    public static final String TITLE_TAGS        = "✦ Cosmetics » Tags";
-    public static final String TITLE_NAME_COLORS = "✦ Cosmetics » Name Colors";
-    public static final String TITLE_CHAT_COLORS = "✦ Cosmetics » Chat Colors";
+    public static final String TITLE_TAGS        = "❆ Cosmetics » Tags";
+    public static final String TITLE_NAME_COLORS = "❆ Cosmetics » Name Colors";
+    public static final String TITLE_CHAT_COLORS = "❆ Cosmetics » Chat Colors";
+    public static final String TITLE_GLOW        = "❆ Cosmetics » Glow";
 
     private static final int SIZE = 54;
     private static final int SLOT_TAB_TAGS        = 0;
     private static final int SLOT_TAB_NAME_COLORS = 1;
     private static final int SLOT_TAB_CHAT_COLORS = 2;
+    private static final int SLOT_TAB_GLOW        = 3;
     private static final int SLOT_UNEQUIP         = 8;
 
     // 3 rows × 7 centered items
@@ -45,7 +48,7 @@ public class CosmeticsGUI {
         28, 29, 30, 31, 32, 33, 34
     };
 
-    public enum Tab { TAGS, NAME_COLORS, CHAT_COLORS }
+    public enum Tab { TAGS, NAME_COLORS, CHAT_COLORS, GLOW }
 
     private final Main plugin;
 
@@ -54,6 +57,7 @@ public class CosmeticsGUI {
     public void openTags(Player p)       { open(p, Tab.TAGS); }
     public void openColors(Player p)     { open(p, Tab.NAME_COLORS); }
     public void openChatColors(Player p) { open(p, Tab.CHAT_COLORS); }
+    public void openGlow(Player p)       { open(p, Tab.GLOW); }
 
     // default open: Tags tab
     public void open(Player p) { open(p, Tab.TAGS); }
@@ -63,6 +67,7 @@ public class CosmeticsGUI {
             case TAGS        -> TITLE_TAGS;
             case NAME_COLORS -> TITLE_NAME_COLORS;
             case CHAT_COLORS -> TITLE_CHAT_COLORS;
+            case GLOW        -> TITLE_GLOW;
         };
         Inventory inv = Bukkit.createInventory(null, SIZE, MessageUtil.parse(rawTitle));
 
@@ -74,7 +79,7 @@ public class CosmeticsGUI {
         for (int s : CONTENT_SLOTS)    inv.setItem(s, null);
         for (int i = 36; i < 54; i++)  inv.setItem(i, filler);
 
-        // ── tab buttons ───────────────────────────────────────────────
+        // ── tab buttons ─────────────────────────────────────────────
         inv.setItem(SLOT_TAB_TAGS, tabBtn(
                 tab == Tab.TAGS, Material.NAME_TAG,
                 "<gradient:#7afcff:#00c2ff><bold>Chat Tags</bold></gradient>",
@@ -90,19 +95,26 @@ public class CosmeticsGUI {
                 "<gradient:#c471f5:#fa71cd><bold>Chat Colors</bold></gradient>",
                 tab == Tab.CHAT_COLORS ? "<green>► Currently viewing" : "<gray>Click to switch"));
 
-        // spacer slots 3-7
-        for (int i = 3; i <= 7; i++) inv.setItem(i, filler());
+        inv.setItem(SLOT_TAB_GLOW, tabBtn(
+                tab == Tab.GLOW, Material.GLOWSTONE_DUST,
+                "<gradient:#ffe259:#ffa751><bold>✨ Glow</bold></gradient>",
+                tab == Tab.GLOW ? "<green>► Currently viewing" : "<gray>Click to switch"));
 
-        // ── unequip button ────────────────────────────────────────────
+        // spacer slots 4-7
+        for (int i = 4; i <= 7; i++) inv.setItem(i, filler());
+
+        // ── unequip button ───────────────────────────────────────────
         Optional<CrateReward> active = switch (tab) {
             case TAGS        -> mgr.getActiveTag(player);
             case NAME_COLORS -> mgr.getActiveColor(player);
             case CHAT_COLORS -> mgr.getActiveChatColor(player);
+            case GLOW        -> mgr.getActiveGlow(player);
         };
         boolean hasActive = active.isPresent();
         String previewStr = active.map(r -> {
             if (r.isColor())     return r.getCosmeticFormat().replace("{name}", player.getName());
             if (r.isChatColor()) return r.getCosmeticFormat().replace("{msg}", "Hello!");
+            if (r.isGlow())      return "<yellow>" + r.getDisplayName() + "</yellow>";
             return r.getCosmeticFormat();
         }).orElse("<dark_gray>None");
 
@@ -113,16 +125,18 @@ public class CosmeticsGUI {
                         hasActive ? "<red>Click to unequip." : "<dark_gray>Nothing equipped."),
                 false));
 
-        // ── fill cosmetic items ───────────────────────────────────────
+        // ── fill cosmetic items ─────────────────────────────────────────
         CrateReward.Type type = switch (tab) {
             case TAGS        -> CrateReward.Type.TAG;
             case NAME_COLORS -> CrateReward.Type.NAME_COLOR;
             case CHAT_COLORS -> CrateReward.Type.CHAT_COLOR;
+            case GLOW        -> CrateReward.Type.GLOW;
         };
         Set<CrateReward> collection = switch (tab) {
             case TAGS        -> mgr.getUnlockedTags(player);
             case NAME_COLORS -> mgr.getUnlockedColors(player);
             case CHAT_COLORS -> mgr.getUnlockedChatColors(player);
+            case GLOW        -> mgr.getUnlockedGlows(player);
         };
 
         List<CrateReward> all = new ArrayList<>();
@@ -143,18 +157,28 @@ public class CosmeticsGUI {
         player.openInventory(inv);
     }
 
-    // ── item builders ─────────────────────────────────────────────────
+    // ── item builders ─────────────────────────────────────────────
 
     private ItemStack buildCosmeticItem(CrateReward r, boolean unlocked, boolean active, Player player) {
         Material mat = unlocked ? r.getIcon() : Material.GRAY_STAINED_GLASS_PANE;
 
         String previewRaw;
-        if (r.isColor())     previewRaw = r.getCosmeticFormat().replace("{name}", player.getName());
-        else if (r.isChatColor()) previewRaw = r.getCosmeticFormat().replace("{msg}", "Hello, world!");
-        else                 previewRaw = r.getCosmeticFormat();
+        if (r.isColor())         previewRaw = r.getCosmeticFormat().replace("{name}", player.getName());
+        else if (r.isChatColor())previewRaw = r.getCosmeticFormat().replace("{msg}", "Hello, world!");
+        else if (r.isGlow()) {
+            if (r.isPrismaticGlow())
+                previewRaw = "<gradient:#ff0000:#ff7700:#ffff00:#00ff00:#0000ff:#8b00ff>" + r.getDisplayName() + "</gradient>";
+            else
+                previewRaw = "<yellow>✨ " + r.getDisplayName() + "</yellow>";
+        } else {
+            previewRaw = r.getCosmeticFormat();
+        }
 
         List<String> lore = new ArrayList<>();
         lore.add("<gray>Rarity: " + r.tierLabel());
+        if (r.isGlow() && r.isPrismaticGlow()) {
+            lore.add("<gradient:#ff0000:#ff7700:#ffff00:#00ff00:#0000ff:#8b00ff>★ Cycles through all colors!</gradient>");
+        }
         lore.add("");
         if (unlocked) {
             lore.add("<gray>Preview:");
