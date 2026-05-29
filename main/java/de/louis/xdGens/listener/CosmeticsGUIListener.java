@@ -31,8 +31,13 @@ public class CosmeticsGUIListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        CosmeticsGUI.Tab tab = resolveTab(title);
-        if (tab == null) return;
+
+        // decode() handles ALL pages, not just page 0
+        CosmeticsGUI.TabPage tabPage = CosmeticsGUI.decode(title);
+        if (tabPage == null) return;
+
+        CosmeticsGUI.Tab tab = tabPage.tab();
+        int currentPage      = tabPage.page();
 
         event.setCancelled(true);
         int slot = event.getRawSlot();
@@ -41,13 +46,23 @@ public class CosmeticsGUIListener implements Listener {
         PlayerCosmeticManager mgr = plugin.getPlayerCosmeticManager();
         CosmeticsGUI gui = new CosmeticsGUI(plugin);
 
-        // ── tab switches ────────────────────────────────────────────
+        // ── tab switches (always go back to page 0) ────────────────
         if (slot == 0) { gui.openTags(player);       return; }
         if (slot == 1) { gui.openColors(player);     return; }
         if (slot == 2) { gui.openChatColors(player); return; }
         if (slot == 3) { gui.openGlow(player);       return; }
 
-        // ── unequip ─────────────────────────────────────────────
+        // ── pagination buttons ──────────────────────────────────────
+        if (slot == CosmeticsGUI.SLOT_PREV) {
+            if (currentPage > 0) gui.open(player, tab, currentPage - 1);
+            return;
+        }
+        if (slot == CosmeticsGUI.SLOT_NEXT) {
+            gui.open(player, tab, currentPage + 1);
+            return;
+        }
+
+        // ── unequip ─────────────────────────────────────────────────
         if (slot == 8) {
             switch (tab) {
                 case TAGS        -> mgr.setActiveTag(player, null);
@@ -61,13 +76,17 @@ public class CosmeticsGUIListener implements Listener {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.8f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Removed active "
                     + tab.name().toLowerCase().replace('_', ' ') + ".");
-            reopenTab(gui, player, tab);
+            gui.open(player, tab, currentPage);
             return;
         }
 
         // ── cosmetic slots ─────────────────────────────────────────
         int contentIdx = slotToContentIdx(slot);
         if (contentIdx < 0) return;
+
+        // apply page offset so page 1+ maps to the correct reward
+        int pageSize  = CosmeticsGUI.CONTENT_SLOTS.length; // 21
+        int globalIdx = currentPage * pageSize + contentIdx;
 
         CrateReward.Type type = switch (tab) {
             case TAGS        -> CrateReward.Type.TAG;
@@ -89,9 +108,10 @@ public class CosmeticsGUIListener implements Listener {
             if (ua != ub) return ua ? -1 : 1;
             return Integer.compare(b.getTier(), a.getTier());
         });
-        if (contentIdx >= all.size()) return;
 
-        CrateReward reward = all.get(contentIdx);
+        if (globalIdx >= all.size()) return;
+
+        CrateReward reward = all.get(globalIdx);
         if (!mgr.hasCosmetic(player, reward)) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <red>You haven't unlocked <white>"
@@ -138,27 +158,10 @@ public class CosmeticsGUIListener implements Listener {
             else                           preview = reward.getCosmeticFormat();
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Equipped: " + preview);
         }
-        reopenTab(gui, player, tab);
+        gui.open(player, tab, currentPage);
     }
 
-    // ── helpers ──────────────────────────────────────────────
-
-    private CosmeticsGUI.Tab resolveTab(String title) {
-        if (title.equals(CosmeticsGUI.TITLE_TAGS))        return CosmeticsGUI.Tab.TAGS;
-        if (title.equals(CosmeticsGUI.TITLE_NAME_COLORS)) return CosmeticsGUI.Tab.NAME_COLORS;
-        if (title.equals(CosmeticsGUI.TITLE_CHAT_COLORS)) return CosmeticsGUI.Tab.CHAT_COLORS;
-        if (title.equals(CosmeticsGUI.TITLE_GLOW))        return CosmeticsGUI.Tab.GLOW;
-        return null;
-    }
-
-    private void reopenTab(CosmeticsGUI gui, Player p, CosmeticsGUI.Tab tab) {
-        switch (tab) {
-            case TAGS        -> gui.openTags(p);
-            case NAME_COLORS -> gui.openColors(p);
-            case CHAT_COLORS -> gui.openChatColors(p);
-            case GLOW        -> gui.openGlow(p);
-        }
-    }
+    // ── helpers ──────────────────────────────────────────────────
 
     private int slotToContentIdx(int slot) {
         int[] cs = CosmeticsGUI.CONTENT_SLOTS;
