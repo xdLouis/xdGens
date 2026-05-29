@@ -29,6 +29,8 @@ public class CrateListener implements Listener {
         this.plugin = plugin;
     }
 
+    // ── crate GUI click ───────────────────────────────────────────────
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -36,25 +38,19 @@ public class CrateListener implements Listener {
         if (!title.contains("Crates")) return;
 
         event.setCancelled(true);
-        int slot = event.getSlot();
-
-        CrateType crateType = resolveBySlot(slot);
+        CrateType crateType = resolveBySlot(event.getSlot());
         if (crateType == null) return;
 
-        if (event.getClick() == ClickType.RIGHT) {
-            handleOpenAll(player, crateType);
-        } else {
-            handleOpenOne(player, crateType);
-        }
+        if (event.getClick() == ClickType.RIGHT) handleOpenAll(player, crateType);
+        else                                     handleOpenOne(player, crateType);
     }
 
-    // Pouch right-click → direct redemption (no item given)
+    // ── pouch right-click → instant redemption ─────────────────────────
+
     @EventHandler(priority = EventPriority.HIGH)
     public void onPouchUse(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
-        if (event.getAction() != Action.RIGHT_CLICK_AIR
-                && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Player    player = event.getPlayer();
         ItemStack item   = event.getItem();
         if (!PouchItem.isPouch(plugin, item)) return;
@@ -72,11 +68,12 @@ public class CrateListener implements Listener {
         if (item.getAmount() <= 1) player.getInventory().setItemInMainHand(null);
         else item.setAmount(item.getAmount() - 1);
 
-        player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.1f);
-        MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                + " <green>Opened pouch:</green> <white>+" + NumberUtil.format(value)
-                + " " + readable(type) + "</white>");
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.1f);
+        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Opened pouch:</green> <white>+"
+                + NumberUtil.format(value) + " " + readable(type) + "</white>");
     }
+
+    // ── open one ───────────────────────────────────────────────────────
 
     private void handleOpenOne(Player player, CrateType type) {
         if (!plugin.getVirtualKeyManager().consumeKey(player, type)) {
@@ -84,6 +81,15 @@ public class CrateListener implements Listener {
                     + " <red>You don't have a " + type.getDisplayName() + " key.</red>");
             return;
         }
+        // check 1 free slot for potential voucher
+        if (hasPotentialVoucher(type) && freeSlots(player) < 1) {
+            // refund key and abort
+            plugin.getVirtualKeyManager().addKey(player, type);
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                    + " <red>Your inventory is full! Clear at least 1 slot before opening.");
+            return;
+        }
+
         CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
         redeemPouches(player, result);
         giveVoucher(player, result);
@@ -91,59 +97,94 @@ public class CrateListener implements Listener {
 
         String voucherNote = result.hasVoucher()
                 ? " " + result.rolledCosmetic().tierLabel()
-                + " <white>" + result.rolledCosmetic().getDisplayName() + "</white> cosmetic!" : "";
+                + " <white>" + result.rolledCosmetic().getDisplayName() + "</white> cosmetic voucher!" : "";
         MessageUtil.sendRaw(player, MessageUtil.PREFIX + " "
                 + type.getGradient() + type.getDisplayName() + " Crate opened!</gradient>"
-                + " <gray>Rewards redeemed directly!</gray>" + voucherNote);
+                + " <gray>Rewards redeemed!</gray>" + voucherNote);
         new CratesGUI(plugin).open(player);
     }
 
+    // ── open all ───────────────────────────────────────────────────────
+
     private void handleOpenAll(Player player, CrateType type) {
-        int count = plugin.getVirtualKeyManager().consumeAll(player, type);
-        if (count <= 0) {
+        int total = plugin.getVirtualKeyManager().keyCount(player, type);
+        if (total <= 0) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
                     + " <red>You don't have any " + type.getDisplayName() + " keys.</red>");
             return;
         }
+
+        int opened   = 0;
         int vouchers = 0;
-        for (int i = 0; i < count; i++) {
+
+        for (int i = 0; i < total; i++) {
+            // Before each crate: if this type can produce a voucher and inv is full, stop
+            if (hasPotentialVoucher(type) && freeSlots(player) < 1) {
+                MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                        + " <red>Inventory full — stopped after <white>" + opened + "</white> crate"
+                        + (opened == 1 ? "" : "s") + ". Clear space and try again.</red>");
+                break;
+            }
+
+            if (!plugin.getVirtualKeyManager().consumeKey(player, type)) break;
+
             CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
             redeemPouches(player, result);
             giveVoucher(player, result);
             if (result.hasVoucher()) vouchers++;
+            opened++;
         }
+
+        if (opened == 0) return;
+
         playCrateSound(player);
         String voucherNote = vouchers > 0
                 ? " <gradient:#c471f5:#fa71cd>+" + vouchers + " cosmetic voucher" + (vouchers > 1 ? "s" : "") + "!</gradient>"
                 : "";
         MessageUtil.sendRaw(player, MessageUtil.PREFIX + " "
-                + type.getGradient() + "Opened " + count + "x " + type.getDisplayName() + " Crate!</gradient>"
+                + type.getGradient() + "Opened " + opened + "x " + type.getDisplayName() + " Crate!</gradient>"
                 + " <gray>All rewards redeemed!</gray>" + voucherNote);
         new CratesGUI(plugin).open(player);
     }
 
-    /**
-     * Redeems all 3 pouches directly (money/xp/tokens added to player account).
-     * No pouch items are given to the player's inventory.
-     */
+    // ── helpers ─────────────────────────────────────────────────────────
+
     private void redeemPouches(Player player, CrateManager.CrateOpenResult result) {
         for (ItemStack pouch : result.pouches()) {
-            PouchType type  = PouchItem.getType(plugin, pouch);
-            long      value = PouchItem.getValue(plugin, pouch);
-            if (type == null || value <= 0) continue;
-            switch (type) {
-                case MONEY  -> plugin.getCurrencyManager().addMoney(player, value);
-                case TOKENS -> plugin.getCurrencyManager().addTokens(player, (int) value);
-                case XP     -> plugin.getProgressionManager().addXp(player, value);
+            PouchType t   = PouchItem.getType(plugin, pouch);
+            long      val = PouchItem.getValue(plugin, pouch);
+            if (t == null || val <= 0) continue;
+            switch (t) {
+                case MONEY  -> plugin.getCurrencyManager().addMoney(player, val);
+                case TOKENS -> plugin.getCurrencyManager().addTokens(player, (int) val);
+                case XP     -> plugin.getProgressionManager().addXp(player, val);
             }
         }
     }
 
-    /** Cosmetic vouchers still go to the inventory (they're rare & special). */
     private void giveVoucher(Player player, CrateManager.CrateOpenResult result) {
         if (!result.hasVoucher()) return;
         var leftovers = player.getInventory().addItem(result.voucherItem());
-        leftovers.values().forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+        // drop anything that didn’t fit (should rarely happen due to pre-check)
+        leftovers.values().forEach(l -> player.getWorld().dropItemNaturally(player.getLocation(), l));
+    }
+
+    /**
+     * Returns true if this crate type has a non-zero chance of giving a cosmetic voucher.
+     * All crate types do, so we always need at least 1 free slot as a safety margin.
+     */
+    private boolean hasPotentialVoucher(CrateType type) {
+        return true; // all crates can potentially roll a voucher
+    }
+
+    /** Counts empty slots in the player's main inventory (slots 0-35). */
+    private int freeSlots(Player player) {
+        int free = 0;
+        for (int i = 0; i < 36; i++) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (item == null || item.getType().isAir()) free++;
+        }
+        return free;
     }
 
     private void playCrateSound(Player player) {

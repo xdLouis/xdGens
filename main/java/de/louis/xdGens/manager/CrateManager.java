@@ -21,25 +21,29 @@ public class CrateManager {
         this.plugin = plugin;
     }
 
-    // ── crate roll ────────────────────────────────────────────────────
+    // ── roll a random crate type ─────────────────────────────────────────
 
     public CrateType rollCrate() {
-        double total = 0.0;
+        double total = 0;
         for (CrateType t : CrateType.values()) total += t.getWeight();
         double rand = ThreadLocalRandom.current().nextDouble() * total, acc = 0;
         for (CrateType t : CrateType.values()) { acc += t.getWeight(); if (rand <= acc) return t; }
         return CrateType.COMMON;
     }
 
-    // ── open crate ────────────────────────────────────────────────────
+    // ── open one crate ───────────────────────────────────────────────
 
     /**
-     * Cosmetic chances:
-     *   COMMON     0.8%   tier 1 only
-     *   UNCOMMON   1.5%   tier 1 only
-     *   RARE       3.5%   tier 1 + 2 (tier-2 at 30% weight)
-     *   EPIC       7.0%   tier 1 + 2 + 3 (tier-3 at 20% weight)
-     *   LEGENDARY 14.0%   all tiers, tier-3 at 200% weight
+     * Strict tier pools — each crate tier only rolls cosmetics of its OWN tier:
+     *
+     *   COMMON     0.8%   Tier 1 (Rare) cosmetics only
+     *   UNCOMMON   1.5%   Tier 1 cosmetics only
+     *   RARE       3.5%   Tier 2 (Very Rare) cosmetics only
+     *   EPIC       7.0%   Tier 2 cosmetics only
+     *   LEGENDARY 14.0%   Tier 3 (Legendary) cosmetics only
+     *
+     * Pouches are always redeemed directly (money/xp/tokens added to account).
+     * Cosmetic voucher items go to inventory if rolled.
      */
     public CrateOpenResult openCrate(Player player, CrateType type) {
         List<ItemStack> pouches = new ArrayList<>();
@@ -49,60 +53,52 @@ public class CrateManager {
 
         CrateReward cosmetic    = rollCosmetic(type);
         ItemStack   voucherItem = cosmetic != null ? CosmeticVoucherItem.create(plugin, cosmetic) : null;
-
         return new CrateOpenResult(pouches, voucherItem, cosmetic);
     }
 
     private CrateReward rollCosmetic(CrateType crateType) {
         double chance = switch (crateType) {
-            case COMMON    -> 0.008;
-            case UNCOMMON  -> 0.015;
-            case RARE      -> 0.035;
-            case EPIC      -> 0.070;
-            case LEGENDARY -> 0.140;
+            case COMMON    -> 0.008;  // 0.8%
+            case UNCOMMON  -> 0.015;  // 1.5%
+            case RARE      -> 0.035;  // 3.5%
+            case EPIC      -> 0.070;  // 7.0%
+            case LEGENDARY -> 0.140;  // 14.0%
         };
         if (ThreadLocalRandom.current().nextDouble() > chance) return null;
 
+        // strict tier: each crate type → its own cosmetic tier
+        int targetTier = switch (crateType) {
+            case COMMON, UNCOMMON -> 1;   // Rare cosmetics
+            case RARE, EPIC       -> 2;   // Very Rare cosmetics
+            case LEGENDARY        -> 3;   // Legendary cosmetics only
+        };
+
         List<CrateReward> pool = new ArrayList<>();
         for (CrateReward r : CrateReward.values()) {
-            if (!r.isTag() && !r.isColor() && !r.isChatColor()) continue;
-            switch (crateType) {
-                case COMMON, UNCOMMON -> { if (r.getTier() == 1) pool.add(r); }
-                case RARE             -> { if (r.getTier() <= 2) pool.add(r); }
-                case EPIC, LEGENDARY  -> pool.add(r);
-            }
+            if (r.isPouch()) continue;
+            if (r.getTier() == targetTier) pool.add(r);
         }
         if (pool.isEmpty()) return null;
 
         double total = 0;
-        for (CrateReward r : pool) total += adjustedWeight(r, crateType);
+        for (CrateReward r : pool) total += r.getWeight();
         double rand = ThreadLocalRandom.current().nextDouble() * total, acc = 0;
         for (CrateReward r : pool) {
-            acc += adjustedWeight(r, crateType);
+            acc += r.getWeight();
             if (rand <= acc) return r;
         }
         return pool.get(pool.size() - 1);
     }
 
-    private double adjustedWeight(CrateReward r, CrateType crateType) {
-        double w = r.getWeight();
-        return switch (r.getTier()) {
-            case 2 -> switch (crateType) { case RARE -> w * 0.3; case EPIC -> w; default -> w; };
-            case 3 -> switch (crateType) { case EPIC -> w * 0.2; case LEGENDARY -> w * 2.0; default -> w; };
-            default -> w;
-        };
-    }
-
-    // ── key finder ────────────────────────────────────────────────────
+    // ── key finder ──────────────────────────────────────────────────
 
     public boolean tryGiveRandomKey(Player player) {
-        double chance = plugin.getHoeUpgradeManager().getKeyFinderChance(player);
-        if (ThreadLocalRandom.current().nextDouble() > chance) return false;
+        if (ThreadLocalRandom.current().nextDouble() > plugin.getHoeUpgradeManager().getKeyFinderChance(player)) return false;
         plugin.getVirtualKeyManager().addKey(player, rollCrate());
         return true;
     }
 
-    // ── result record ─────────────────────────────────────────────────
+    // ── result record ───────────────────────────────────────────────
 
     public record CrateOpenResult(
             List<ItemStack> pouches,
@@ -114,7 +110,7 @@ public class CrateManager {
         public CrateReward newCosmetic() { return rolledCosmetic; }
     }
 
-    // ── reward tables ─────────────────────────────────────────────────
+    // ── reward tables ────────────────────────────────────────────────
 
     private long randomBetween(long min, long max) { return ThreadLocalRandom.current().nextLong(min, max + 1); }
 
