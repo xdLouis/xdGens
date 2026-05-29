@@ -4,6 +4,8 @@ import de.louis.xdGens.gui.HoeUpgradeAmountGUI;
 import de.louis.xdGens.gui.HoeUpgradeGUI;
 import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.HoeUpgradeManager;
+import de.louis.xdGens.skill.PandaRollerSkill;
+import de.louis.xdGens.skill.SkillRegistry;
 import de.louis.xdGens.util.HoeUtil;
 import de.louis.xdGens.util.MessageUtil;
 import de.louis.xdGens.util.NumberUtil;
