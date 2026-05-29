@@ -3,6 +3,7 @@ package de.louis.xdGens.main;
 import de.louis.xdGens.command.*;
 import de.louis.xdGens.field.FieldManager;
 import de.louis.xdGens.listener.CosmeticVoucherListener;
+import de.louis.xdGens.listener.CosmeticsGUIListener;
 import de.louis.xdGens.listener.CrateListener;
 import de.louis.xdGens.listener.DropListener;
 import de.louis.xdGens.listener.FieldListener;
@@ -71,6 +72,7 @@ public final class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ShopListener(this), this);
         getServer().getPluginManager().registerEvents(new CrateListener(this), this);
         getServer().getPluginManager().registerEvents(new CosmeticVoucherListener(this), this);
+        getServer().getPluginManager().registerEvents(new CosmeticsGUIListener(this), this);
         getServer().getPluginManager().registerEvents(lobbyProtectionListener, this);
 
         lobbyProtectionListener.applyToAllWorlds();
@@ -93,11 +95,16 @@ public final class Main extends JavaPlugin {
             getCommand("xdadmin").setExecutor(xdAdmin);
             getCommand("xdadmin").setTabCompleter(xdAdmin);
         }
-        if (getCommand("prestige") != null) getCommand("prestige").setExecutor(new PrestigeCommand(this));
-        if (getCommand("shop")     != null) getCommand("shop").setExecutor(new ShopCommand(this));
-        if (getCommand("sell")     != null) getCommand("sell").setExecutor(new SellCommand(this));
-        if (getCommand("diamond")  != null) getCommand("diamond").setExecutor(new DiamondCommand());
-        if (getCommand("crates")   != null) getCommand("crates").setExecutor(new CratesCommand(this));
+        if (getCommand("prestige")   != null) getCommand("prestige").setExecutor(new PrestigeCommand(this));
+        if (getCommand("shop")       != null) getCommand("shop").setExecutor(new ShopCommand(this));
+        if (getCommand("sell")       != null) getCommand("sell").setExecutor(new SellCommand(this));
+        if (getCommand("diamond")    != null) getCommand("diamond").setExecutor(new DiamondCommand());
+        if (getCommand("crates")     != null) getCommand("crates").setExecutor(new CratesCommand(this));
+        if (getCommand("cosmetics")  != null) {
+            CosmeticsCommand cos = new CosmeticsCommand(this);
+            getCommand("cosmetics").setExecutor(cos);
+            getCommand("cosmetics").setTabCompleter(cos);
+        }
 
         getLogger().info(MessageUtil.strip(MessageUtil.PREFIX + " <green>Plugin enabled.</green>"));
     }

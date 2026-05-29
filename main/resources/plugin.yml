@@ -23,6 +23,9 @@ commands:
     description: Open the xdGens shop
   crates:
     description: Open the crates menu
+  cosmetics:
+    description: Open the cosmetics menu (tags & colors)
+    usage: /cosmetics [tags|colors]
   xdadmin:
     description: Admin command for xdGens
     usage: /xdadmin
