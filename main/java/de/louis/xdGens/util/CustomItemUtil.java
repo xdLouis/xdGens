@@ -30,7 +30,7 @@ public class CustomItemUtil {
             "https://textures.minecraft.net/texture/3a95e6f808843f5ff32a4fc3d5abad8bccf7cb4fcf66f39eec0ded41416a5c";
 
     public static ItemStack createFarmWheat(Main plugin, int amount) {
-        double price = plugin.getConfig().getDouble("sell.wheat.price", 20.0);
+        double price = plugin.getConfig().getDouble("sell.wheat.price", 30.0);
         ItemStack item = new ItemStack(Material.WHEAT, Math.max(1, amount));
         ItemMeta meta = item.getItemMeta();
         meta.displayName(MessageUtil.parse("<gradient:#f6d365:#fda085><bold>Farm Wheat</bold></gradient>"));
@@ -46,7 +46,7 @@ public class CustomItemUtil {
     }
 
     public static ItemStack createCompressedWheatBlock(Main plugin, int amount) {
-        double price = plugin.getConfig().getDouble("sell.compressed_wheat_block.price", 1500.0);
+        double price = plugin.getConfig().getDouble("sell.compressed_wheat_block.price", 2200.0);
         ItemStack item = new ItemStack(Material.HAY_BLOCK, Math.max(1, amount));
         ItemMeta meta = item.getItemMeta();
         meta.displayName(MessageUtil.parse("<gradient:#7afcff:#00c2ff><bold>Compressed Wheat Block</bold></gradient>"));
@@ -62,7 +62,7 @@ public class CustomItemUtil {
     }
 
     public static ItemStack createEnchantedWheatBale(Main plugin, int amount) {
-        double price = plugin.getConfig().getDouble("sell.enchanted_wheat_bale.price", 120000.0);
+        double price = plugin.getConfig().getDouble("sell.enchanted_wheat_bale.price", 180000.0);
         ItemStack item = new ItemStack(Material.HAY_BLOCK, Math.max(1, amount));
         ItemMeta meta = item.getItemMeta();
         meta.displayName(MessageUtil.parse("<gradient:#f093fb:#f5576c><bold>Enchanted Wheat Bale</bold></gradient>"));
