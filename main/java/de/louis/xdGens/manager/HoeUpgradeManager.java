@@ -254,7 +254,7 @@ public class HoeUpgradeManager {
             int  current = getPandaLevel(p);
             if (current >= MAX_PANDA_LEVEL) break;
             long cost    = getPandaCost(current + 1);
-            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             pandaLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
@@ -271,7 +271,7 @@ public class HoeUpgradeManager {
             int  current = getTntLevel(p);
             if (current >= MAX_TNT_LEVEL) break;
             long cost    = getTntCost(current + 1);
-            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             tntLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
@@ -301,7 +301,7 @@ public class HoeUpgradeManager {
             int  current = getXpLevel(p);
             if (current >= MAX_XP_LEVEL) break;
             long cost    = getXpCost(current + 1);
-            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             xpLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
@@ -315,7 +315,7 @@ public class HoeUpgradeManager {
             int  current = getTokenLevel(p);
             if (current >= MAX_TOKEN_LEVEL) break;
             long cost    = getTokenCost(current + 1);
-            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             tokenLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
@@ -329,7 +329,7 @@ public class HoeUpgradeManager {
             int  current = getKeyFinderLevel(p);
             if (current >= MAX_KEY_FINDER_LEVEL) break;
             long cost    = getKeyFinderCost(current + 1);
-            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             keyFinderLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
