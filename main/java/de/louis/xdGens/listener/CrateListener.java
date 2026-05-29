@@ -76,17 +76,14 @@ public class CrateListener implements Listener {
     // ── open one ───────────────────────────────────────────────────────
 
     private void handleOpenOne(Player player, CrateType type) {
+        if (freeSlots(player) < 1) {
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                    + " <red>Your inventory is full! Clear at least 1 slot before opening.</red>");
+            return;
+        }
         if (!plugin.getVirtualKeyManager().consumeKey(player, type)) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
                     + " <red>You don't have a " + type.getDisplayName() + " key.</red>");
-            return;
-        }
-        // check 1 free slot for potential voucher
-        if (hasPotentialVoucher(type) && freeSlots(player) < 1) {
-            // refund key and abort
-            plugin.getVirtualKeyManager().addKey(player, type);
-            MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>Your inventory is full! Clear at least 1 slot before opening.");
             return;
         }
 
@@ -107,7 +104,7 @@ public class CrateListener implements Listener {
     // ── open all ───────────────────────────────────────────────────────
 
     private void handleOpenAll(Player player, CrateType type) {
-        int total = plugin.getVirtualKeyManager().keyCount(player, type);
+        int total = plugin.getVirtualKeyManager().getKeys(player, type);
         if (total <= 0) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
                     + " <red>You don't have any " + type.getDisplayName() + " keys.</red>");
@@ -118,14 +115,12 @@ public class CrateListener implements Listener {
         int vouchers = 0;
 
         for (int i = 0; i < total; i++) {
-            // Before each crate: if this type can produce a voucher and inv is full, stop
-            if (hasPotentialVoucher(type) && freeSlots(player) < 1) {
+            if (freeSlots(player) < 1) {
                 MessageUtil.sendRaw(player, MessageUtil.PREFIX
                         + " <red>Inventory full — stopped after <white>" + opened + "</white> crate"
                         + (opened == 1 ? "" : "s") + ". Clear space and try again.</red>");
                 break;
             }
-
             if (!plugin.getVirtualKeyManager().consumeKey(player, type)) break;
 
             CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
@@ -165,16 +160,7 @@ public class CrateListener implements Listener {
     private void giveVoucher(Player player, CrateManager.CrateOpenResult result) {
         if (!result.hasVoucher()) return;
         var leftovers = player.getInventory().addItem(result.voucherItem());
-        // drop anything that didn’t fit (should rarely happen due to pre-check)
         leftovers.values().forEach(l -> player.getWorld().dropItemNaturally(player.getLocation(), l));
-    }
-
-    /**
-     * Returns true if this crate type has a non-zero chance of giving a cosmetic voucher.
-     * All crate types do, so we always need at least 1 free slot as a safety margin.
-     */
-    private boolean hasPotentialVoucher(CrateType type) {
-        return true; // all crates can potentially roll a voucher
     }
 
     /** Counts empty slots in the player's main inventory (slots 0-35). */
