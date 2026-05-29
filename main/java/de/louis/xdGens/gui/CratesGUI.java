@@ -30,7 +30,7 @@ import java.util.List;
  *
  * When a crate item is clicked:
  *   LEFT  click → open 1 key
- *   RIGHT click → open ALL keys of that type
+ *   RIGHT click → open preview GUI (all cosmetics + odds)
  */
 public class CratesGUI {
 
@@ -80,12 +80,10 @@ public class CratesGUI {
         lore.add(Component.empty());
         if (amount > 0) {
             lore.add(MessageUtil.parse("<green>\u25b6 Left-click to open <white>1</white> key"));
-            if (amount > 1) {
-                lore.add(MessageUtil.parse("<gold>\u25b6 Right-click to open <white>all " + amount + "</white> keys"));
-            }
         } else {
             lore.add(MessageUtil.parse("<red>\u2718 No keys — break wheat to find some"));
         }
+        lore.add(MessageUtil.parse("<aqua>\u25b6 Right-click to preview <white>all rewards \u0026 odds</white>"));
         meta.lore(lore);
 
         if (amount > 0) {
