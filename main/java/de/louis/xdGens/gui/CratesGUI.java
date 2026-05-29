@@ -17,17 +17,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * /crates  —  3 Reihen (27 Slots)
+ * /crates  —  3 rows (27 slots)
  *
  *  Slot:  0  1  2  3  4  5  6  7  8
  *  R0:   [b][b][b][b][b][b][b][b][b]
- *  R1:   [b][C][U][R][E][L][b][i][b]    C–L = Crates, i = Key-Finder-Info
+ *  R1:   [b][C][U][R][E][L][b][i][b]    C–L = Crates, i = Key Finder info
  *  R2:   [b][b][b][b][b][b][b][b][b]
  *
- *  Crate-Item-Klick:
- *    LEFT        → 1 Key öffnen
- *    SHIFT+LEFT  → alle Keys öffnen
- *    RIGHT       → Rewards & Odds
+ *  Click scheme:
+ *    LEFT        → open 1 key
+ *    SHIFT+LEFT  → open all keys
+ *    RIGHT       → Rewards & Odds preview
  */
 public class CratesGUI {
 
@@ -58,7 +58,7 @@ public class CratesGUI {
         player.openInventory(inv);
     }
 
-    // ── Crate-Item ─────────────────────────────────────────────────
+    // ── Crate item ─────────────────────────────────────────────────
 
     private ItemStack buildCrateItem(Player player, CrateType type) {
         int keys = plugin.getVirtualKeyManager().getKeys(player, type);
@@ -75,16 +75,13 @@ public class CratesGUI {
         if (keys > 0) {
             lore.add(MessageUtil.parse("<gray>Keys: <white>" + keys + "</white>"));
         } else {
-            lore.add(MessageUtil.parse("<gray>Keys: <red>0</red> <dark_gray>— in Weizen finden"));
+            lore.add(MessageUtil.parse("<gray>Keys: <red>0</red> <dark_gray>— find them in wheat"));
         }
 
         lore.add(Component.empty());
-
-        if (keys > 0) {
-            lore.add(MessageUtil.parse("<gray>\u25b6 <white>Linksklick</white>         1 Key öffnen"));
-            lore.add(MessageUtil.parse("<gray>\u25b6 <white>Shift+Linksklick</white>  alle " + keys + " öffnen"));
-        }
-        lore.add(MessageUtil.parse("<gray>\u25b6 <white>Rechtsklick</white>        Rewards & Odds"));
+        lore.add(MessageUtil.parse("<gray>\u25b6 <white>Left-click</white>         open 1 key"));
+        lore.add(MessageUtil.parse("<gray>\u25b6 <white>Shift+Left-click</white>  open all" + (keys > 0 ? " (" + keys + ")" : "") + " keys"));
+        lore.add(MessageUtil.parse("<gray>\u25b6 <white>Right-click</white>        Rewards & Odds"));
 
         meta.lore(lore);
         if (keys > 0) {
@@ -96,7 +93,7 @@ public class CratesGUI {
         return item;
     }
 
-    // ── Key-Finder-Info ──────────────────────────────────────────────
+    // ── Key Finder info ────────────────────────────────────────────
 
     private ItemStack buildInfoItem(Player player) {
         int    kfLevel  = plugin.getHoeUpgradeManager().getKeyFinderLevel(player);
@@ -109,16 +106,16 @@ public class CratesGUI {
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
         lore.add(MessageUtil.parse("<gray>Level: <white>" + kfLevel + "</white><dark_gray>/1000"));
-        lore.add(MessageUtil.parse("<gray>Chance: <gold>" + String.format("%.2f", kfChance) + "%</gold> pro Weizen"));
+        lore.add(MessageUtil.parse("<gray>Chance: <gold>" + String.format("%.2f", kfChance) + "%</gold> per wheat"));
         lore.add(Component.empty());
-        lore.add(MessageUtil.parse("<dark_gray>Keys landen hier, nicht im Inventar."));
+        lore.add(MessageUtil.parse("<dark_gray>Keys are stored here, not in your inventory."));
         meta.lore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
 
-    // ── Helper ──────────────────────────────────────────────────────
+    // ── Helper ─────────────────────────────────────────────────────
 
     private ItemStack pane(Material mat) {
         ItemStack p = new ItemStack(mat);
