@@ -57,13 +57,16 @@ public class FieldListener implements Listener {
         event.setDropItems(false);
         event.setExpToDrop(0);
 
-        int    tokenMin = plugin.getConfig().getInt("rewards.wheat.tokens.min", 1);
-        int    tokenMax = plugin.getConfig().getInt("rewards.wheat.tokens.max", 5);
+        int    tokenMin = plugin.getConfig().getInt("rewards.wheat.tokens.min", 3);
+        int    tokenMax = plugin.getConfig().getInt("rewards.wheat.tokens.max", 10);
         double xpMin    = plugin.getConfig().getDouble("rewards.wheat.xp.min", 8.0);
         double xpMax    = plugin.getConfig().getDouble("rewards.wheat.xp.max", 16.0);
 
         int    baseTokens  = Rng.between(tokenMin, tokenMax);
-        long   finalTokens = Math.round(baseTokens * plugin.getHoeUpgradeManager().getTokenMultiplier(player));
+        // Apply hoe upgrade multiplier, then prestige token bonus on top
+        double hoeMultiplier      = plugin.getHoeUpgradeManager().getTokenMultiplier(player);
+        double prestigeMultiplier = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
+        long   finalTokens = Math.round(baseTokens * hoeMultiplier * prestigeMultiplier);
         double finalXp     = Rng.between(xpMin, xpMax) * plugin.getHoeUpgradeManager().getXpMultiplier(player);
 
         int totalCrops = 1 + plugin.getHoeUpgradeManager().getCropBonus(player);
@@ -80,7 +83,7 @@ public class FieldListener implements Listener {
         plugin.getProgressionManager().addXp(player, finalXp);
         plugin.getActionBarManager().addHarvest(player, Math.toIntExact(finalTokens), finalXp);
 
-        // ── Key Finder: grant virtual key (no physical item) ─────────────
+        // ── Key Finder: grant virtual key (no physical item) ─────────────────────
         if (plugin.getHoeUpgradeManager().getKeyFinderLevel(player) > 0) {
             boolean found = plugin.getCrateManager().tryGiveRandomKey(player);
             if (found) {

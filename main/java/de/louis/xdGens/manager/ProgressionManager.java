@@ -21,6 +21,9 @@ public class ProgressionManager {
     private static final double BASE_PRESTIGE_COST = 250000.0;
     private static final double PRESTIGE_COST_STEP = 150000.0;
 
+    /** +10% tokens per prestige level (e.g. Prestige 3 → ×1.30) */
+    private static final double PRESTIGE_TOKEN_BONUS_PER_LEVEL = 0.10;
+
     private final Main plugin;
     private final Map<UUID, PlayerProgress> data = new HashMap<>();
 
@@ -183,6 +186,19 @@ public class ProgressionManager {
         return BASE_PRESTIGE_COST + (getPrestige(player) * PRESTIGE_COST_STEP);
     }
 
+    /**
+     * Returns the token multiplier bonus from prestige.
+     * Prestige 0 → 1.0x (no bonus), Prestige 1 → 1.10x, Prestige 3 → 1.30x, etc.
+     */
+    public double getPrestigeTokenMultiplier(Player player) {
+        return 1.0 + (getPrestige(player) * PRESTIGE_TOKEN_BONUS_PER_LEVEL);
+    }
+
+    /** Returns the prestige token bonus as a readable percent, e.g. Prestige 3 → 30.0 */
+    public double getPrestigeTokenBonusPercent(Player player) {
+        return getPrestige(player) * (PRESTIGE_TOKEN_BONUS_PER_LEVEL * 100.0);
+    }
+
     public boolean prestige(Player player) {
         int requiredLevel = getRequiredLevelForPrestige(player);
         double cost = getPrestigeCost(player);
@@ -202,10 +218,13 @@ public class ProgressionManager {
 
         savePlayer(player);
 
+        double bonusPct = getPrestigeTokenBonusPercent(player);
         MessageUtil.sendRaw(player,
                 MessageUtil.PREFIX + " <gray>You advanced to <gradient:#f6d365:#fda085>Prestige "
                         + progress.prestige + "</gradient><gray>!</gray> <gray>(-</gray><green>$"
-                        + NumberUtil.format(cost) + "</green><gray>)</gray> <gray>Next prestige at Level </gray><yellow>"
+                        + NumberUtil.format(cost) + "</green><gray>)</gray>"
+                        + " <gray>Token Bonus: </gray><yellow>+" + (int) bonusPct + "%</yellow>"
+                        + " <gray>Next prestige at Level </gray><yellow>"
                         + getRequiredLevelForPrestige(player) + "</yellow><gray>.</gray>");
 
         updateDisplays(player);
