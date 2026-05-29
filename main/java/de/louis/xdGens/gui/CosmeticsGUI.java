@@ -21,11 +21,6 @@ public class CosmeticsGUI {
     public static final String BASE_CHAT_COLORS = "\u2746 Cosmetics \u00bb Chat Colors";
     public static final String BASE_GLOW        = "\u2746 Cosmetics \u00bb Glow";
 
-    public static final String TITLE_TAGS        = BASE_TAGS        + "|TAGS|0|RARITY_DESC";
-    public static final String TITLE_NAME_COLORS = BASE_NAME_COLORS + "|NAME_COLORS|0|RARITY_DESC";
-    public static final String TITLE_CHAT_COLORS = BASE_CHAT_COLORS + "|CHAT_COLORS|0|RARITY_DESC";
-    public static final String TITLE_GLOW        = BASE_GLOW        + "|GLOW|0|RARITY_DESC";
-
     private static final int SIZE = 54;
 
     private static final int SLOT_TAB_TAGS        = 0;
@@ -60,6 +55,11 @@ public class CosmeticsGUI {
         public final String label;
         public final Material icon;
         Sort(String label, Material icon) { this.label = label; this.icon = icon; }
+
+        public Sort next() {
+            Sort[] vals = values();
+            return vals[(ordinal() + 1) % vals.length];
+        }
     }
 
     private final Main plugin;
@@ -90,31 +90,38 @@ public class CosmeticsGUI {
         for (int s : CONTENT_SLOTS)    inv.setItem(s, null);
         for (int i = 36; i < 54; i++)  inv.setItem(i, filler);
 
+        // ── Tab buttons ───────────────────────────────────────────────
         inv.setItem(SLOT_TAB_TAGS, tabBtn(
                 tab == Tab.TAGS, Material.NAME_TAG,
-                "<gradient:#7afcff:#00c2ff><bold>Chat Tags</bold></gradient>",
+                "<aqua><bold>Chat Tags</bold></aqua>",
                 tab == Tab.TAGS ? "<green>\u25ba Currently viewing" : "<gray>Click to switch"));
         inv.setItem(SLOT_TAB_NAME_COLORS, tabBtn(
                 tab == Tab.NAME_COLORS, Material.GLOW_INK_SAC,
-                "<gradient:#f6d365:#fda085><bold>Name Colors</bold></gradient>",
+                "<gold><bold>Name Colors</bold></gold>",
                 tab == Tab.NAME_COLORS ? "<green>\u25ba Currently viewing" : "<gray>Click to switch"));
         inv.setItem(SLOT_TAB_CHAT_COLORS, tabBtn(
                 tab == Tab.CHAT_COLORS, Material.BOOK,
-                "<gradient:#c471f5:#fa71cd><bold>Chat Colors</bold></gradient>",
+                "<light_purple><bold>Chat Colors</bold></light_purple>",
                 tab == Tab.CHAT_COLORS ? "<green>\u25ba Currently viewing" : "<gray>Click to switch"));
         inv.setItem(SLOT_TAB_GLOW, tabBtn(
                 tab == Tab.GLOW, Material.GLOWSTONE_DUST,
-                "<gradient:#ffe259:#ffa751><bold>\u2728 Glow</bold></gradient>",
+                "<yellow><bold>\u2728 Glow</bold></yellow>",
                 tab == Tab.GLOW ? "<green>\u25ba Currently viewing" : "<gray>Click to switch"));
 
         for (int i = 4; i <= 6; i++) inv.setItem(i, filler());
 
-        inv.setItem(SLOT_FILTER, buildItem(Material.HOPPER,
-                "<yellow><bold>\uD83D\uDD0D Filter / Sort</bold></yellow>",
-                List.of("<gray>Current: <white>" + sort.label, "",
-                        "<yellow>Click to change sort order"),
+        // ── Filter/Sort button (cycles on click — no new inventory) ───
+        Sort nextSort = sort.next();
+        inv.setItem(SLOT_FILTER, buildItem(sort.icon,
+                "<yellow><bold>\uD83D\uDD04 Sort: " + sort.label + "</bold></yellow>",
+                List.of(
+                    "<gray>Click to cycle sort order",
+                    "",
+                    "<dark_gray>Next: <gray>" + nextSort.label
+                ),
                 false));
 
+        // ── Unequip button ────────────────────────────────────────────
         Optional<CrateReward> active = switch (tab) {
             case TAGS        -> mgr.getActiveTag(player);
             case NAME_COLORS -> mgr.getActiveColor(player);
@@ -136,6 +143,7 @@ public class CosmeticsGUI {
                         hasActive ? "<red>Click to unequip." : "<dark_gray>Nothing equipped."),
                 false));
 
+        // ── Collect + sort ────────────────────────────────────────────
         CrateReward.Type type = switch (tab) {
             case TAGS        -> CrateReward.Type.TAG;
             case NAME_COLORS -> CrateReward.Type.NAME_COLOR;
@@ -165,6 +173,7 @@ public class CosmeticsGUI {
             inv.setItem(CONTENT_SLOTS[i - start], buildCosmeticItem(r, unlocked, isActive, player));
         }
 
+        // ── Pagination ────────────────────────────────────────────────
         inv.setItem(SLOT_PREV, safePage > 0
                 ? buildItem(Material.ARROW, "<yellow><bold>\u25c4 Previous Page</bold></yellow>",
                             List.of("<gray>Page " + safePage + " of " + totalPages), false)
@@ -201,7 +210,7 @@ public class CosmeticsGUI {
 
     public record TabPage(Tab tab, int page, Sort sort) {}
 
-    // ── PUBLIC STATIC comparator (shared with Listener) ───────────────
+    // ── public static comparator (shared with Listener) ──────────────
 
     public static Comparator<CrateReward> buildComparator(Sort sort,
                                                            Set<CrateReward> collection,
@@ -251,7 +260,8 @@ public class CosmeticsGUI {
     // ── item builders ─────────────────────────────────────────────────
 
     private ItemStack buildCosmeticItem(CrateReward r, boolean unlocked, boolean active, Player player) {
-        Material mat = unlocked ? r.getIcon() : Material.GRAY_STAINED_GLASS_PANE;
+        // locked items get red glass to stand out
+        Material mat = unlocked ? r.getIcon() : Material.RED_STAINED_GLASS_PANE;
         String previewRaw;
         if (r.isColor())          previewRaw = r.getCosmeticFormat().replace("{name}", player.getName());
         else if (r.isChatColor()) previewRaw = r.getCosmeticFormat().replace("{msg}", "Hello, world!");

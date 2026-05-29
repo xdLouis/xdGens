@@ -2,7 +2,6 @@ package de.louis.xdGens.listener;
 
 import de.louis.xdGens.crate.CrateReward;
 import de.louis.xdGens.gui.CosmeticsGUI;
-import de.louis.xdGens.gui.FilterGUI;
 import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.PlayerCosmeticManager;
 import de.louis.xdGens.util.MessageUtil;
@@ -28,27 +27,6 @@ public class CosmeticsGUIListener implements Listener {
 
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
-        // ── Filter GUI ──────────────────────────────────────────────────
-        FilterGUI.FilterPage fp = FilterGUI.decode(title);
-        if (fp != null) {
-            event.setCancelled(true);
-            int slot = event.getRawSlot();
-            if (slot < 0 || slot >= 27) return;
-            CosmeticsGUI gui = new CosmeticsGUI(plugin);
-            if (slot == 4) { gui.open(player, fp.tab(), fp.page(), fp.sort()); return; }
-            int[] sortSlots = { 10, 11, 12, 13, 14, 15, 16 };
-            CosmeticsGUI.Sort[] sorts = CosmeticsGUI.Sort.values();
-            for (int i = 0; i < sortSlots.length && i < sorts.length; i++) {
-                if (slot == sortSlots[i]) {
-                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
-                    gui.open(player, fp.tab(), 0, sorts[i]);
-                    return;
-                }
-            }
-            return;
-        }
-
-        // ── Cosmetics GUI ───────────────────────────────────────────────
         CosmeticsGUI.TabPage tp = CosmeticsGUI.decode(title);
         if (tp == null) return;
 
@@ -69,10 +47,10 @@ public class CosmeticsGUIListener implements Listener {
         if (slot == 2) { gui.openChatColors(player); return; }
         if (slot == 3) { gui.openGlow(player);       return; }
 
-        // filter
+        // filter: cycle to next sort in-place, no new inventory
         if (slot == CosmeticsGUI.SLOT_FILTER) {
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.0f);
-            new FilterGUI(plugin).open(player, tab, page, sort);
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
+            gui.open(player, tab, page, sort.next());
             return;
         }
 
@@ -123,7 +101,6 @@ public class CosmeticsGUIListener implements Listener {
             case GLOW        -> mgr.getUnlockedGlows(player);
         };
 
-        // use the shared comparator from CosmeticsGUI
         all.sort(CosmeticsGUI.buildComparator(sort, collection, player, mgr));
 
         if (globalIdx >= all.size()) return;
