@@ -1,6 +1,5 @@
 package de.louis.xdGens.manager;
 
-import de.louis.xdGens.crate.CrateReward;
 import de.louis.xdGens.main.Main;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -16,13 +15,14 @@ import java.util.UUID;
 /**
  * Applies entity-glow to players using scoreboard teams.
  *
- * Normal glows  → solid ChatColor via team color.
- * PRISMATIC glow → cycles through all colors every 20 ticks (1 second).
- * INFERNO glow   → cycles between DARK_RED and GOLD.
- * VOID glow      → cycles between BLACK and DARK_GRAY.
+ * The team MUST live on the same Scoreboard the player currently has assigned.
+ * This plugin gives each player a private Scoreboard via ScoreboardManager,
+ * so we always fetch the board from there.
  *
- * Call applyGlow(player)  after equip / on join.
- * Call removeGlow(player) after unequip.
+ * Special color keys:
+ *   PRISMATIC → cycles all 8 rainbow colors
+ *   INFERNO   → cycles DARK_RED / GOLD / RED
+ *   VOID      → cycles BLACK / DARK_GRAY / DARK_PURPLE
  */
 public class GlowManager {
 
@@ -34,27 +34,24 @@ public class GlowManager {
     private static final ChatColor[] INFERNO_COLORS = { ChatColor.DARK_RED, ChatColor.GOLD, ChatColor.RED };
     private static final ChatColor[] VOID_COLORS    = { ChatColor.BLACK, ChatColor.DARK_GRAY, ChatColor.DARK_PURPLE };
 
-    private final Main plugin;
-    private final Scoreboard scoreboard;
+    private static final String TEAM_PREFIX = "glow_";
 
-    // players with an active cycling task
-    private final Map<UUID, BukkitTask> cyclingTasks  = new HashMap<>();
-    private final Map<UUID, Integer>    cycleIndex     = new HashMap<>();
+    private final Main plugin;
+    private final Map<UUID, BukkitTask> cyclingTasks = new HashMap<>();
+    private final Map<UUID, Integer>    cycleIndex   = new HashMap<>();
 
     public GlowManager(Main plugin) {
         this.plugin = plugin;
-        // use main scoreboard so glow is visible to everyone
-        this.scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
     }
 
-    // ── public API ────────────────────────────────────────────────────
+    // ── public API ───────────────────────────────────────────────
 
-    /** Apply the player's currently equipped glow (call on equip + on join). */
+    /** Apply the player’s currently equipped glow. Call on equip + on join. */
     public void applyGlow(Player player) {
-        removeGlow(player); // clean up old state first
+        removeGlow(player); // clean up first
 
         String colorKey = plugin.getPlayerCosmeticManager().getGlowColor(player);
-        if (colorKey == null) return; // nothing equipped
+        if (colorKey == null) return;
 
         player.setGlowing(true);
 
@@ -66,26 +63,21 @@ public class GlowManager {
         }
     }
 
-    /** Remove glow entirely (call on unequip + on quit). */
+    /** Remove glow entirely. Call on unequip + on quit. */
     public void removeGlow(Player player) {
         stopCycling(player);
         player.setGlowing(false);
         clearTeam(player);
     }
 
-    /** Refresh all online players' glows (e.g. after a reload). */
-    public void refreshAll() {
-        for (Player p : Bukkit.getOnlinePlayers()) applyGlow(p);
-    }
-
-    /** Stop all cycling tasks (call on plugin disable). */
+    /** Stop all cycling tasks. Call on plugin disable. */
     public void shutdown() {
         cyclingTasks.values().forEach(BukkitTask::cancel);
         cyclingTasks.clear();
         cycleIndex.clear();
     }
 
-    // ── internals ─────────────────────────────────────────────────────
+    // ── internals ───────────────────────────────────────────────
 
     private void applyStaticColor(Player player, String colorKey) {
         ChatColor color = parseChatColor(colorKey);
@@ -99,42 +91,65 @@ public class GlowManager {
 
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             Player p = Bukkit.getPlayer(uuid);
-            if (p == null || !p.isOnline()) {
-                stopCycling(uuid);
-                return;
-            }
+            if (p == null || !p.isOnline()) { stopCycling(uuid); return; }
             int idx = cycleIndex.getOrDefault(uuid, 0);
             setTeamColor(p, colors[idx]);
             cycleIndex.put(uuid, (idx + 1) % colors.length);
-        }, 0L, 20L); // cycle every 1 second
+        }, 0L, 20L);
 
         cyclingTasks.put(uuid, task);
     }
 
     private void stopCycling(Player player) { stopCycling(player.getUniqueId()); }
     private void stopCycling(UUID uuid) {
-        BukkitTask task = cyclingTasks.remove(uuid);
-        if (task != null) task.cancel();
+        BukkitTask t = cyclingTasks.remove(uuid);
+        if (t != null) t.cancel();
         cycleIndex.remove(uuid);
     }
 
+    /**
+     * Sets the team color on the Scoreboard the player currently has assigned.
+     * This is critical: the team must live on the player’s own board, not the main scoreboard.
+     */
     private void setTeamColor(Player player, ChatColor color) {
-        String teamName = "glow_" + player.getUniqueId().toString().replace("-", "").substring(0, 14);
+        Scoreboard board = resolveBoard(player);
+        String teamName  = teamName(player);
 
-        Team team = scoreboard.getTeam(teamName);
-        if (team == null) team = scoreboard.registerNewTeam(teamName);
+        Team team = board.getTeam(teamName);
+        if (team == null) team = board.registerNewTeam(teamName);
 
         team.setColor(color);
-        team.addEntry(player.getName());
+        if (!team.hasEntry(player.getName())) team.addEntry(player.getName());
     }
 
     private void clearTeam(Player player) {
-        String teamName = "glow_" + player.getUniqueId().toString().replace("-", "").substring(0, 14);
-        Team team = scoreboard.getTeam(teamName);
+        // Clear on the player's current board
+        Scoreboard board = resolveBoard(player);
+        Team team = board.getTeam(teamName(player));
         if (team != null) {
             team.removeEntry(player.getName());
             if (team.getEntries().isEmpty()) team.unregister();
         }
+    }
+
+    /**
+     * Returns the Scoreboard the player is currently using.
+     * Prefers the private board from ScoreboardManager (which is what they’re actually watching),
+     * falls back to the main scoreboard if none is set yet.
+     */
+    private Scoreboard resolveBoard(Player player) {
+        ScoreboardManager sbm = plugin.getScoreboardManager();
+        if (sbm != null) {
+            Scoreboard board = sbm.getBoard(player);
+            if (board != null) return board;
+        }
+        return Bukkit.getScoreboardManager().getMainScoreboard();
+    }
+
+    /** Short stable team name derived from the UUID (max 16 chars). */
+    private String teamName(Player player) {
+        String uuid = player.getUniqueId().toString().replace("-", "");
+        return (TEAM_PREFIX + uuid).substring(0, 16); // team names max 16 chars in 1.21
     }
 
     private ChatColor parseChatColor(String key) {
