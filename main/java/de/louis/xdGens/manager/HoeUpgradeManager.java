@@ -19,6 +19,7 @@ public class HoeUpgradeManager {
     public static final int MAX_CROP_LEVEL  = 10;
     public static final int MAX_XP_LEVEL    = 1000;
     public static final int MAX_TOKEN_LEVEL = 1000;
+    public static final int MAX_KEY_FINDER_LEVEL = 1000;
     public static final int MAX_HOE_LEVEL   = 18;
 
     private static final int[] CROP_COSTS = {
@@ -34,6 +35,12 @@ public class HoeUpgradeManager {
     private static final double TOKEN_LINEAR_SCALE   = 0.20;
     private static final double TOKEN_EXP_SCALE      = 1.036;
     private static final double TOKEN_GAIN_PER_LEVEL = 0.02;
+
+    private static final double KEY_FINDER_BASE_COST      = 1500.0;
+    private static final double KEY_FINDER_LINEAR_SCALE   = 0.22;
+    private static final double KEY_FINDER_EXP_SCALE      = 1.037;
+    private static final double KEY_FINDER_BASE_CHANCE    = 0.00015;
+    private static final double KEY_FINDER_MAX_CHANCE     = 0.0125;
 
     private static final double HOE_XP_GAIN_PER_LEVEL = 0.04;
     private static final float  BASE_WALK_SPEED       = 0.20f;
@@ -52,6 +59,7 @@ public class HoeUpgradeManager {
     private final Map<UUID, Integer> cropLevels  = new HashMap<>();
     private final Map<UUID, Integer> xpLevels    = new HashMap<>();
     private final Map<UUID, Integer> tokenLevels = new HashMap<>();
+    private final Map<UUID, Integer> keyFinderLevels = new HashMap<>();
     private final Map<UUID, Integer> hoeLevels   = new HashMap<>();
 
     private File              file;
@@ -62,8 +70,6 @@ public class HoeUpgradeManager {
         setup();
         loadAll();
     }
-
-    // ─── setup / load / save ──────────────────────────────────────────────
 
     private void setup() {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
@@ -80,10 +86,11 @@ public class HoeUpgradeManager {
         for (String key : config.getConfigurationSection("players").getKeys(false)) {
             try {
                 UUID uuid = UUID.fromString(key);
-                cropLevels .put(uuid, clamp  (config.getInt("players." + key + ".crop_harvest",  0), MAX_CROP_LEVEL));
-                xpLevels   .put(uuid, clamp  (config.getInt("players." + key + ".xp_boost",      0), MAX_XP_LEVEL));
-                tokenLevels.put(uuid, clamp  (config.getInt("players." + key + ".token_boost",   0), MAX_TOKEN_LEVEL));
-                hoeLevels  .put(uuid, clampHoe(config.getInt("players." + key + ".hoe_material",  1)));
+                cropLevels.put(uuid, clamp(config.getInt("players." + key + ".crop_harvest", 0), MAX_CROP_LEVEL));
+                xpLevels.put(uuid, clamp(config.getInt("players." + key + ".xp_boost", 0), MAX_XP_LEVEL));
+                tokenLevels.put(uuid, clamp(config.getInt("players." + key + ".token_boost", 0), MAX_TOKEN_LEVEL));
+                keyFinderLevels.put(uuid, clamp(config.getInt("players." + key + ".key_finder", 0), MAX_KEY_FINDER_LEVEL));
+                hoeLevels.put(uuid, clampHoe(config.getInt("players." + key + ".hoe_material", 1)));
             } catch (IllegalArgumentException ignored) {
                 plugin.getLogger().warning("Invalid UUID in upgrades.yml: " + key);
             }
@@ -94,34 +101,38 @@ public class HoeUpgradeManager {
     public void saveAll() {
         for (UUID uuid : getAllKnownPlayers()) {
             String path = "players." + uuid;
-            config.set(path + ".crop_harvest",  getCropLevel(uuid));
-            config.set(path + ".xp_boost",      getXpLevel(uuid));
-            config.set(path + ".token_boost",   getTokenLevel(uuid));
-            config.set(path + ".hoe_material",  getHoeLevel(uuid));
+            config.set(path + ".crop_harvest", getCropLevel(uuid));
+            config.set(path + ".xp_boost", getXpLevel(uuid));
+            config.set(path + ".token_boost", getTokenLevel(uuid));
+            config.set(path + ".key_finder", getKeyFinderLevel(uuid));
+            config.set(path + ".hoe_material", getHoeLevel(uuid));
         }
         try { config.save(file); }
         catch (IOException e) { plugin.getLogger().severe("Could not save upgrades.yml: " + e.getMessage()); }
     }
 
-    // ─── getters ──────────────────────────────────────────────────────────
+    public int getCropLevel(Player player) { return getCropLevel(player.getUniqueId()); }
+    public int getCropBonus(Player player) { return getCropLevel(player); }
+    public int getXpLevel(Player player) { return getXpLevel(player.getUniqueId()); }
+    public int getTokenLevel(Player player) { return getTokenLevel(player.getUniqueId()); }
+    public int getKeyFinderLevel(Player player) { return getKeyFinderLevel(player.getUniqueId()); }
+    public int getHoeLevel(Player player) { return getHoeLevel(player.getUniqueId()); }
 
-    public int getCropLevel(Player player)   { return getCropLevel(player.getUniqueId()); }
-    public int getCropBonus(Player player)   { return getCropLevel(player); }
-    public int getXpLevel(Player player)     { return getXpLevel(player.getUniqueId()); }
-    public int getTokenLevel(Player player)  { return getTokenLevel(player.getUniqueId()); }
-    public int getHoeLevel(Player player)    { return getHoeLevel(player.getUniqueId()); }
-
-    public double getXpMultiplier(Player player)  { return 1.0 + (getXpLevel(player) * XP_GAIN_PER_LEVEL) + getHoeXpBonus(player); }
+    public double getXpMultiplier(Player player) { return 1.0 + (getXpLevel(player) * XP_GAIN_PER_LEVEL) + getHoeXpBonus(player); }
     public double getXpPercentBonus(Player player) { return (getXpMultiplier(player) - 1.0) * 100.0; }
-
-    public double getTokenMultiplier(Player player)   { return 1.0 + (getTokenLevel(player) * TOKEN_GAIN_PER_LEVEL); }
+    public double getTokenMultiplier(Player player) { return 1.0 + (getTokenLevel(player) * TOKEN_GAIN_PER_LEVEL); }
     public double getTokenPercentBonus(Player player) { return getTokenLevel(player) * (TOKEN_GAIN_PER_LEVEL * 100.0); }
+    public double getKeyFinderChance(Player player) {
+        int level = getKeyFinderLevel(player);
+        double progress = (double) level / MAX_KEY_FINDER_LEVEL;
+        return KEY_FINDER_BASE_CHANCE + ((KEY_FINDER_MAX_CHANCE - KEY_FINDER_BASE_CHANCE) * Math.pow(progress, 0.82));
+    }
 
-    public int    getHoeStageInMaterial(Player player)  { return ((getHoeLevel(player) - 1) % 3) + 1; }
-    public String getHoeMaterialName(Player player)     { return getHoeMaterialName(getHoeLevel(player)); }
-    public Material getHoeMaterial(Player player)       { return getHoeMaterial(getHoeLevel(player)); }
-    public double getHoeXpBonus(Player player)          { return (getHoeLevel(player) - 1) * HOE_XP_GAIN_PER_LEVEL; }
-    public double getHoeXpPercentBonus(Player player)   { return getHoeXpBonus(player) * 100.0; }
+    public int getHoeStageInMaterial(Player player) { return ((getHoeLevel(player) - 1) % 3) + 1; }
+    public String getHoeMaterialName(Player player) { return getHoeMaterialName(getHoeLevel(player)); }
+    public Material getHoeMaterial(Player player) { return getHoeMaterial(getHoeLevel(player)); }
+    public double getHoeXpBonus(Player player) { return (getHoeLevel(player) - 1) * HOE_XP_GAIN_PER_LEVEL; }
+    public double getHoeXpPercentBonus(Player player) { return getHoeXpBonus(player) * 100.0; }
 
     public float getWalkSpeed(Player player) {
         int level = getHoeLevel(player);
@@ -130,8 +141,6 @@ public class HoeUpgradeManager {
         return BASE_WALK_SPEED + ((MAX_WALK_SPEED - BASE_WALK_SPEED) * progress);
     }
 
-    // ─── costs ────────────────────────────────────────────────────────────
-
     public int getCropCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_CROP_LEVEL) return -1;
         return CROP_COSTS[targetLevel - 1];
@@ -139,14 +148,17 @@ public class HoeUpgradeManager {
 
     public long getXpCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_XP_LEVEL) return -1;
-        double cost = XP_BASE_COST * (1.0 + (XP_LINEAR_SCALE * targetLevel)) * Math.pow(XP_EXP_SCALE, targetLevel - 1);
-        return Math.round(cost);
+        return Math.round(XP_BASE_COST * (1.0 + (XP_LINEAR_SCALE * targetLevel)) * Math.pow(XP_EXP_SCALE, targetLevel - 1));
     }
 
     public long getTokenCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_TOKEN_LEVEL) return -1;
-        double cost = TOKEN_BASE_COST * (1.0 + (TOKEN_LINEAR_SCALE * targetLevel)) * Math.pow(TOKEN_EXP_SCALE, targetLevel - 1);
-        return Math.round(cost);
+        return Math.round(TOKEN_BASE_COST * (1.0 + (TOKEN_LINEAR_SCALE * targetLevel)) * Math.pow(TOKEN_EXP_SCALE, targetLevel - 1));
+    }
+
+    public long getKeyFinderCost(int targetLevel) {
+        if (targetLevel < 1 || targetLevel > MAX_KEY_FINDER_LEVEL) return -1;
+        return Math.round(KEY_FINDER_BASE_COST * (1.0 + (KEY_FINDER_LINEAR_SCALE * targetLevel)) * Math.pow(KEY_FINDER_EXP_SCALE, targetLevel - 1));
     }
 
     public long getHoeCost(int targetLevel) {
@@ -154,19 +166,10 @@ public class HoeUpgradeManager {
         return HOE_COSTS[targetLevel - 2];
     }
 
-    // ─── single upgrades ─────────────────────────────────────────────────
-
-    public boolean upgradeCrop(Player player) {
-        return upgradeCropBulk(player, 1) == 1;
-    }
-
-    public boolean upgradeXp(Player player) {
-        return upgradeXpBulk(player, 1) == 1;
-    }
-
-    public boolean upgradeToken(Player player) {
-        return upgradeTokenBulk(player, 1) == 1;
-    }
+    public boolean upgradeCrop(Player player) { return upgradeCropBulk(player, 1) == 1; }
+    public boolean upgradeXp(Player player) { return upgradeXpBulk(player, 1) == 1; }
+    public boolean upgradeToken(Player player) { return upgradeTokenBulk(player, 1) == 1; }
+    public boolean upgradeKeyFinder(Player player) { return upgradeKeyFinderBulk(player, 1) == 1; }
 
     public boolean upgradeHoe(Player player) {
         int current = getHoeLevel(player);
@@ -179,13 +182,6 @@ public class HoeUpgradeManager {
         return true;
     }
 
-    // ─── bulk upgrades ────────────────────────────────────────────────────
-
-    /**
-     * Try to buy up to `amount` levels of Crop Harvest.
-     * Deducts tokens level-by-level; stops when the player can no longer afford the next level.
-     * @return number of levels actually purchased
-     */
     public int upgradeCropBulk(Player player, int amount) {
         int bought = 0;
         for (int i = 0; i < amount; i++) {
@@ -200,10 +196,6 @@ public class HoeUpgradeManager {
         return bought;
     }
 
-    /**
-     * Buy up to `amount` XP Boost levels.
-     * @return number of levels actually purchased
-     */
     public int upgradeXpBulk(Player player, int amount) {
         int bought = 0;
         for (int i = 0; i < amount; i++) {
@@ -218,10 +210,6 @@ public class HoeUpgradeManager {
         return bought;
     }
 
-    /**
-     * Buy up to `amount` Token Boost levels.
-     * @return number of levels actually purchased
-     */
     public int upgradeTokenBulk(Player player, int amount) {
         int bought = 0;
         for (int i = 0; i < amount; i++) {
@@ -236,7 +224,19 @@ public class HoeUpgradeManager {
         return bought;
     }
 
-    // ─── hoe stats ────────────────────────────────────────────────────────
+    public int upgradeKeyFinderBulk(Player player, int amount) {
+        int bought = 0;
+        for (int i = 0; i < amount; i++) {
+            int current = getKeyFinderLevel(player);
+            if (current >= MAX_KEY_FINDER_LEVEL) break;
+            long cost = getKeyFinderCost(current + 1);
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(player, cost)) break;
+            keyFinderLevels.put(player.getUniqueId(), current + 1);
+            bought++;
+        }
+        if (bought > 0) saveAll();
+        return bought;
+    }
 
     public void applyHoeStats(Player player) {
         player.setWalkSpeed(getWalkSpeed(player));
@@ -248,8 +248,6 @@ public class HoeUpgradeManager {
         if (!HoeUtil.isXdHoe(mainHand)) return;
         player.getInventory().setItemInMainHand(HoeUtil.updateHoeItem(plugin, mainHand, getHoeLevel(player)));
     }
-
-    // ─── private helpers ─────────────────────────────────────────────────
 
     private Material getHoeMaterial(int level) {
         int group = (level - 1) / 3;
@@ -275,13 +273,14 @@ public class HoeUpgradeManager {
         };
     }
 
-    private int  getCropLevel(UUID uuid)  { return cropLevels .getOrDefault(uuid, 0); }
-    private int  getXpLevel(UUID uuid)    { return xpLevels   .getOrDefault(uuid, 0); }
-    private int  getTokenLevel(UUID uuid) { return tokenLevels.getOrDefault(uuid, 0); }
-    private int  getHoeLevel(UUID uuid)   { return hoeLevels  .getOrDefault(uuid, 1); }
+    private int getCropLevel(UUID uuid) { return cropLevels.getOrDefault(uuid, 0); }
+    private int getXpLevel(UUID uuid) { return xpLevels.getOrDefault(uuid, 0); }
+    private int getTokenLevel(UUID uuid) { return tokenLevels.getOrDefault(uuid, 0); }
+    private int getKeyFinderLevel(UUID uuid) { return keyFinderLevels.getOrDefault(uuid, 0); }
+    private int getHoeLevel(UUID uuid) { return hoeLevels.getOrDefault(uuid, 1); }
 
-    private int clamp   (int v, int max)  { return Math.max(0, Math.min(max, v)); }
-    private int clampHoe(int v)           { return Math.max(1, Math.min(MAX_HOE_LEVEL, v)); }
+    private int clamp(int v, int max) { return Math.max(0, Math.min(max, v)); }
+    private int clampHoe(int v) { return Math.max(1, Math.min(MAX_HOE_LEVEL, v)); }
 
     private int getKnownPlayerCount() {
         return (int) getAllKnownPlayers().spliterator().estimateSize();
@@ -289,10 +288,11 @@ public class HoeUpgradeManager {
 
     private Iterable<UUID> getAllKnownPlayers() {
         Map<UUID, Boolean> all = new HashMap<>();
-        cropLevels .keySet().forEach(u -> all.put(u, true));
-        xpLevels   .keySet().forEach(u -> all.put(u, true));
+        cropLevels.keySet().forEach(u -> all.put(u, true));
+        xpLevels.keySet().forEach(u -> all.put(u, true));
         tokenLevels.keySet().forEach(u -> all.put(u, true));
-        hoeLevels  .keySet().forEach(u -> all.put(u, true));
+        keyFinderLevels.keySet().forEach(u -> all.put(u, true));
+        hoeLevels.keySet().forEach(u -> all.put(u, true));
         return all.keySet();
     }
 }

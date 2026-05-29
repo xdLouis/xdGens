@@ -2,6 +2,7 @@ package de.louis.xdGens.main;
 
 import de.louis.xdGens.command.*;
 import de.louis.xdGens.field.FieldManager;
+import de.louis.xdGens.listener.CrateListener;
 import de.louis.xdGens.listener.DropListener;
 import de.louis.xdGens.listener.FieldListener;
 import de.louis.xdGens.listener.HoeProtectionListener;
@@ -12,6 +13,7 @@ import de.louis.xdGens.listener.ShopListener;
 import de.louis.xdGens.listener.WorkstationListener;
 import de.louis.xdGens.manager.ActionBarManager;
 import de.louis.xdGens.manager.BackpackManager;
+import de.louis.xdGens.manager.CrateManager;
 import de.louis.xdGens.manager.CurrencyManager;
 import de.louis.xdGens.manager.HoeUpgradeManager;
 import de.louis.xdGens.manager.ProgressionManager;
@@ -33,6 +35,7 @@ public final class Main extends JavaPlugin {
     private ProgressionManager progressionManager;
     private HoeUpgradeManager hoeUpgradeManager;
     private BackpackManager backpackManager;
+    private CrateManager crateManager;
     private LobbyProtectionListener lobbyProtectionListener;
 
     @Override
@@ -50,6 +53,7 @@ public final class Main extends JavaPlugin {
         this.progressionManager = new ProgressionManager(this);
         this.hoeUpgradeManager = new HoeUpgradeManager(this);
         this.backpackManager = new BackpackManager(this);
+        this.crateManager = new CrateManager(this);
         this.lobbyProtectionListener = new LobbyProtectionListener(this);
 
         getServer().getPluginManager().registerEvents(new FieldListener(this), this);
@@ -59,6 +63,7 @@ public final class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HoeProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new HoeUpgradeListener(this), this);
         getServer().getPluginManager().registerEvents(new ShopListener(this), this);
+        getServer().getPluginManager().registerEvents(new CrateListener(this), this);
         getServer().getPluginManager().registerEvents(lobbyProtectionListener, this);
 
         lobbyProtectionListener.applyToAllWorlds();
@@ -102,75 +107,33 @@ public final class Main extends JavaPlugin {
             getCommand("diamond").setExecutor(new DiamondCommand());
         }
 
+        if (getCommand("crates") != null) {
+            getCommand("crates").setExecutor(new CratesCommand(this));
+        }
+
         getLogger().info(MessageUtil.strip(MessageUtil.PREFIX + " <green>Plugin enabled.</green>"));
     }
 
     @Override
     public void onDisable() {
-        if (currencyManager != null) {
-            currencyManager.saveAll();
-        }
-
-        if (progressionManager != null) {
-            progressionManager.saveAll();
-        }
-
-        if (hoeUpgradeManager != null) {
-            hoeUpgradeManager.saveAll();
-        }
-
-        if (backpackManager != null) {
-            backpackManager.saveAll();
-        }
-
-        if (workstationManager != null) {
-            workstationManager.removeAll();
-        }
-
-        if (actionBarManager != null) {
-            actionBarManager.stop();
-        }
-
+        if (currencyManager != null) currencyManager.saveAll();
+        if (progressionManager != null) progressionManager.saveAll();
+        if (hoeUpgradeManager != null) hoeUpgradeManager.saveAll();
+        if (backpackManager != null) backpackManager.saveAll();
+        if (workstationManager != null) workstationManager.removeAll();
+        if (actionBarManager != null) actionBarManager.stop();
         getLogger().info("xdGens disabled.");
     }
 
-    public static Main get() {
-        return instance;
-    }
-
-    public FieldManager getFieldManager() {
-        return fieldManager;
-    }
-
-    public CurrencyManager getCurrencyManager() {
-        return currencyManager;
-    }
-
-    public de.louis.xdGens.hologram.HologramManager getHologramManager() {
-        return hologramManager;
-    }
-
-    public WorkstationManager getWorkstationManager() {
-        return workstationManager;
-    }
-
-    public ActionBarManager getActionBarManager() {
-        return actionBarManager;
-    }
-
-    public ScoreboardManager getScoreboardManager() {
-        return scoreboardManager;
-    }
-
-    public ProgressionManager getProgressionManager() {
-        return progressionManager;
-    }
-
-    public HoeUpgradeManager getHoeUpgradeManager() {
-        return hoeUpgradeManager;
-    }
-
-    public BackpackManager getBackpackManager() {
-        return backpackManager;
-    }
+    public static Main get() { return instance; }
+    public FieldManager getFieldManager() { return fieldManager; }
+    public CurrencyManager getCurrencyManager() { return currencyManager; }
+    public de.louis.xdGens.hologram.HologramManager getHologramManager() { return hologramManager; }
+    public WorkstationManager getWorkstationManager() { return workstationManager; }
+    public ActionBarManager getActionBarManager() { return actionBarManager; }
+    public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
+    public ProgressionManager getProgressionManager() { return progressionManager; }
+    public HoeUpgradeManager getHoeUpgradeManager() { return hoeUpgradeManager; }
+    public BackpackManager getBackpackManager() { return backpackManager; }
+    public CrateManager getCrateManager() { return crateManager; }
 }
