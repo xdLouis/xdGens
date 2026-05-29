@@ -15,8 +15,17 @@ field:
 rewards:
   wheat:
     tokens:
-      min: 1
-      max: 5
+      min: 3
+      max: 10
     xp:
       min: 8.0
       max: 16.0
+
+# ── Verkaufspreise ──────────────────────────
+sell:
+  wheat:
+    price: 20.0
+  compressed_wheat_block:
+    price: 1500.0
+  enchanted_wheat_bale:
+    price: 120000.0
