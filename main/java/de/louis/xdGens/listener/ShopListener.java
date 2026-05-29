@@ -26,7 +26,7 @@ public class ShopListener implements Listener {
         this.plugin = plugin;
     }
 
-    // ─── open backpack on RIGHT-CLICK ─────────────────────────────────────────
+    // ─── open backpack on RIGHT-CLICK ───────────────────────────────────────────
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBackpackClick(PlayerInteractEvent event) {
         ItemStack item = event.getItem();
@@ -44,7 +44,7 @@ public class ShopListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
-        // ── Backpack GUI ──────────────────────────────────────────────────────
+        // ── Backpack GUI ──────────────────────────────────────────────────
         if (title.contains(BackpackGUI.TITLE)) {
             int rawSlot = event.getRawSlot();
 
@@ -78,7 +78,7 @@ public class ShopListener implements Listener {
             return;
         }
 
-        // ── Shop GUI ──────────────────────────────────────────────────────────
+        // ── Shop GUI ──────────────────────────────────────────────────────
         if (title.contains(ShopGUI.TITLE)) {
             event.setCancelled(true);
             if (event.getRawSlot() == ShopGUI.SLOT_BACKPACK) handleShopBuyBackpack(player);
@@ -150,7 +150,7 @@ public class ShopListener implements Listener {
         plugin.getBackpackManager().savePlayer(player);
     }
 
-    // ─── button handlers ─────────────────────────────────────────────────────
+    // ─── button handlers ───────────────────────────────────────────────────
     private void handleBackpackSell(Player player) {
         int wheat  = plugin.getBackpackManager().getStoredWheat(player);
         int blocks = plugin.getBackpackManager().getStoredBlocks(player);
@@ -161,9 +161,10 @@ public class ShopListener implements Listener {
             return;
         }
 
-        double wheatPrice = plugin.getConfig().getDouble("sell.wheat.price", 12.0);
-        double blockPrice = plugin.getConfig().getDouble("sell.compressed_wheat_block.price", 900.0);
-        double balePrice  = plugin.getConfig().getDouble("sell.enchanted_wheat_bale.price",  75000.0);
+        // Fallbacks match config.yml defaults exactly
+        double wheatPrice = plugin.getConfig().getDouble("sell.wheat.price", 20.0);
+        double blockPrice = plugin.getConfig().getDouble("sell.compressed_wheat_block.price", 1500.0);
+        double balePrice  = plugin.getConfig().getDouble("sell.enchanted_wheat_bale.price",  120000.0);
         double earned     = (wheat * wheatPrice) + (blocks * blockPrice) + (bales * balePrice);
 
         plugin.getBackpackManager().removeWheat(player,  wheat);
@@ -221,7 +222,7 @@ public class ShopListener implements Listener {
         player.closeInventory();
     }
 
-    // ─── helpers ─────────────────────────────────────────────────────────────────
+    // ─── helpers ──────────────────────────────────────────────────────────────
     private boolean isCropItem(ItemStack item) {
         return CustomItemUtil.hasItemType(plugin, item, "farm_wheat")
                 || CustomItemUtil.hasItemType(plugin, item, "compressed_wheat_block")
