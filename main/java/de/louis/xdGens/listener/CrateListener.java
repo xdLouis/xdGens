@@ -2,6 +2,7 @@ package de.louis.xdGens.listener;
 
 import de.louis.xdGens.crate.CrateType;
 import de.louis.xdGens.crate.PouchItem;
+import de.louis.xdGens.crate.PouchTier;
 import de.louis.xdGens.crate.PouchType;
 import de.louis.xdGens.gui.CratesGUI;
 import de.louis.xdGens.main.Main;
@@ -20,6 +21,9 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 public class CrateListener implements Listener {
 
@@ -69,7 +73,7 @@ public class CrateListener implements Listener {
         else item.setAmount(item.getAmount() - 1);
 
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.1f);
-        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Opened pouch:</green> <white>+"
+        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Pouch opened:</green> <white>+"
                 + NumberUtil.format(value) + " " + readable(type) + "</white>");
     }
 
@@ -92,12 +96,27 @@ public class CrateListener implements Listener {
         giveVoucher(player, result);
         playCrateSound(player);
 
-        String voucherNote = result.hasVoucher()
-                ? " " + result.rolledCosmetic().tierLabel()
-                + " <white>" + result.rolledCosmetic().getDisplayName() + "</white> cosmetic voucher!" : "";
-        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " "
-                + type.getGradient() + type.getDisplayName() + " Crate opened!</gradient>"
-                + " <gray>Rewards redeemed!</gray>" + voucherNote);
+        // — single-open chat output —
+        PouchTier tier = result.pouchTier();
+        StringBuilder sb = new StringBuilder();
+        sb.append(MessageUtil.PREFIX).append(" ")
+          .append(type.getGradient()).append(type.getDisplayName()).append(" Crate</gradient>")
+          .append(" <gray>│</gray> ")
+          .append(tier.getDisplayName()).append(" <gray>pouches</gray>");
+
+        for (ItemStack pouch : result.pouches()) {
+            long val = PouchItem.getValue(plugin, pouch);
+            PouchType pt = PouchItem.getType(plugin, pouch);
+            if (pt == null || val <= 0) continue;
+            sb.append("\n  <dark_gray>└</dark_gray> <white>+").append(NumberUtil.format(val))
+              .append("</white> <gray>").append(readable(pt)).append("</gray>");
+        }
+        if (result.hasVoucher()) {
+            sb.append("\n  <dark_gray>└</dark_gray> ")
+              .append(result.rolledCosmetic().tierLabel())
+              .append(" <white>").append(result.rolledCosmetic().getDisplayName()).append("</white> <gray>cosmetic voucher!</gray>");
+        }
+        MessageUtil.sendRaw(player, sb.toString());
         new CratesGUI(plugin).open(player);
     }
 
@@ -114,6 +133,10 @@ public class CrateListener implements Listener {
         int opened   = 0;
         int vouchers = 0;
 
+        // tier counters for summary
+        Map<PouchTier, Integer> tierCounts = new EnumMap<>(PouchTier.class);
+        long totalMoney = 0, totalXp = 0, totalTokens = 0;
+
         for (int i = 0; i < total; i++) {
             if (freeSlots(player) < 1) {
                 MessageUtil.sendRaw(player, MessageUtil.PREFIX
@@ -126,19 +149,55 @@ public class CrateListener implements Listener {
             CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
             redeemPouches(player, result);
             giveVoucher(player, result);
+
+            // track tier
+            tierCounts.merge(result.pouchTier(), 1, Integer::sum);
+
+            // accumulate totals
+            for (ItemStack pouch : result.pouches()) {
+                long val = PouchItem.getValue(plugin, pouch);
+                PouchType pt = PouchItem.getType(plugin, pouch);
+                if (pt == null) continue;
+                switch (pt) {
+                    case MONEY  -> totalMoney  += val;
+                    case XP     -> totalXp     += val;
+                    case TOKENS -> totalTokens += val;
+                }
+            }
             if (result.hasVoucher()) vouchers++;
             opened++;
         }
 
         if (opened == 0) return;
-
         playCrateSound(player);
-        String voucherNote = vouchers > 0
-                ? " <gradient:#c471f5:#fa71cd>+" + vouchers + " cosmetic voucher" + (vouchers > 1 ? "s" : "") + "!</gradient>"
-                : "";
-        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " "
-                + type.getGradient() + "Opened " + opened + "x " + type.getDisplayName() + " Crate!</gradient>"
-                + " <gray>All rewards redeemed!</gray>" + voucherNote);
+
+        // — open-all summary —
+        StringBuilder sb = new StringBuilder();
+        sb.append(MessageUtil.PREFIX).append(" ")
+          .append(type.getGradient()).append("Opened ").append(opened).append("x ")
+          .append(type.getDisplayName()).append(" Crate</gradient>")
+          .append(" <gray>— Summary:</gray>");
+
+        // tier breakdown
+        for (PouchTier tier : PouchTier.values()) {
+            int count = tierCounts.getOrDefault(tier, 0);
+            if (count == 0) continue;
+            sb.append("\n  <dark_gray>▪</dark_gray> ")
+              .append(tier.getDisplayName())
+              .append(" <gray>x").append(count).append("</gray>");
+        }
+
+        // totals
+        sb.append("\n  <gray>►</gray> <white>+").append(NumberUtil.format(totalMoney)).append("</white> <gray>Money</gray>")
+          .append("  <white>+").append(NumberUtil.format(totalXp)).append("</white> <gray>XP</gray>")
+          .append("  <white>+").append(NumberUtil.format(totalTokens)).append("</white> <gray>Tokens</gray>");
+
+        if (vouchers > 0) {
+            sb.append("\n  <gradient:#c471f5:#fa71cd>✨ ").append(vouchers)
+              .append(" cosmetic voucher").append(vouchers > 1 ? "s" : "").append("!</gradient>");
+        }
+
+        MessageUtil.sendRaw(player, sb.toString());
         new CratesGUI(plugin).open(player);
     }
 
@@ -163,7 +222,6 @@ public class CrateListener implements Listener {
         leftovers.values().forEach(l -> player.getWorld().dropItemNaturally(player.getLocation(), l));
     }
 
-    /** Counts empty slots in the player's main inventory (slots 0-35). */
     private int freeSlots(Player player) {
         int free = 0;
         for (int i = 0; i < 36; i++) {
@@ -178,8 +236,8 @@ public class CrateListener implements Listener {
     }
 
     private CrateType resolveBySlot(int slot) {
-        CrateType[] types = CrateType.values();
         int[] slots = CratesGUI.CRATE_SLOTS;
+        CrateType[] types = CrateType.values();
         for (int i = 0; i < slots.length && i < types.length; i++) {
             if (slots[i] == slot) return types[i];
         }
