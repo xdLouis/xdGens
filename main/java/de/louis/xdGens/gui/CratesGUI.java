@@ -21,12 +21,12 @@ import java.util.*;
  *  Slot:  0  1  2  3  4  5  6  7  8
  *  R0:   [b][b][b][b][b][b][b][b][b]
  *  R1:   [b][C][U][R][E][L][b][i][b]    C–L = Crates, i = Key-Finder-Info
- *  R2:   [b][b][b][b][K][b][b][b][b]    K = Kompass (Slot 22)
+ *  R2:   [b][K][b][b][b][b][b][b][b]    K = Kompass (Slot 19, ein nach links)
  *  R3:   [b][b][b][b][b][b][b][b][b]
  *
  *  Kompass-Klick:
- *    LEFT / RIGHT   → Crate cyclen (über alle 5)
- *    SHIFT / MIDDLE → Preview (öffnet CratePreviewGUI)
+ *    LEFT / RIGHT   → Crate cyclen
+ *    SHIFT / MIDDLE → Preview öffnen
  *
  *  Crate-Item-Klick:
  *    LEFT           → 1 Key öffnen
@@ -35,11 +35,11 @@ import java.util.*;
  */
 public class CratesGUI {
 
-    public static final int[] CRATE_SLOTS   = {10, 11, 12, 13, 14};
-    public static final int   SLOT_INFO     = 16;
-    public static final int   SLOT_COMPASS  = 22;
+    public static final int[] CRATE_SLOTS  = {10, 11, 12, 13, 14};
+    public static final int   SLOT_INFO    = 16;
+    public static final int   SLOT_COMPASS = 19;   // Reihe 2, Spalte 1 (ein nach links)
 
-    // Aktiv fokussierte Crate pro Spieler (Index in CrateType.values())
+    // Aktiv fokussierte Crate pro Spieler
     public static final Map<UUID, Integer> focusIndex = new HashMap<>();
 
     private final Main plugin;
@@ -49,13 +49,12 @@ public class CratesGUI {
     }
 
     public void open(Player player) {
-        int idx = focusIndex.getOrDefault(player.getUniqueId(), 0);
-        open(player, idx);
+        open(player, focusIndex.getOrDefault(player.getUniqueId(), 0));
     }
 
     public void open(Player player, int idx) {
         CrateType[] types = CrateType.values();
-        idx = Math.floorMod(idx, types.length);   // wrap-around
+        idx = Math.floorMod(idx, types.length);
         focusIndex.put(player.getUniqueId(), idx);
 
         Inventory inv = Bukkit.createInventory(
@@ -66,28 +65,23 @@ public class CratesGUI {
         ItemStack filler = pane(Material.BLACK_STAINED_GLASS_PANE);
         for (int i = 0; i < 36; i++) inv.setItem(i, filler.clone());
 
-        // Crate-Items
         for (int i = 0; i < types.length && i < CRATE_SLOTS.length; i++) {
             inv.setItem(CRATE_SLOTS[i], buildCrateItem(player, types[i], i == idx));
         }
 
-        // Key-Finder-Info
-        inv.setItem(SLOT_INFO, buildInfoItem(player));
-
-        // Kompass
+        inv.setItem(SLOT_INFO,    buildInfoItem(player));
         inv.setItem(SLOT_COMPASS, buildCompass(types[idx], idx, types.length));
 
         player.openInventory(inv);
     }
 
-    // ── Crate-Item ───────────────────────────────────────────────────
+    // ── Crate-Item ────────────────────────────────────────────────
 
     private ItemStack buildCrateItem(Player player, CrateType type, boolean focused) {
         int keys = plugin.getVirtualKeyManager().getKeys(player, type);
 
         ItemStack item = new ItemStack(type.getIcon());
         ItemMeta  meta = item.getItemMeta();
-
         meta.displayName(MessageUtil.parse(
                 type.getGradient() + "<bold>" + type.getDisplayName() + " Crate</bold></gradient>"
         ));
@@ -107,7 +101,6 @@ public class CratesGUI {
         }
 
         lore.add(Component.empty());
-
         if (keys > 0) {
             lore.add(MessageUtil.parse("<gray>\u25b6 <white>Linksklick</white>       1 Key öffnen"));
             lore.add(MessageUtil.parse("<gray>\u25b6 <white>Shift+Klick</white>    alle " + keys + " öffnen"));
@@ -115,7 +108,6 @@ public class CratesGUI {
         lore.add(MessageUtil.parse("<gray>\u25b6 <white>Rechtsklick</white>    Rewards ansehen"));
 
         meta.lore(lore);
-
         if (keys > 0 || focused) {
             meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
@@ -125,26 +117,21 @@ public class CratesGUI {
         return item;
     }
 
-    // ── Kompass ───────────────────────────────────────────────────────
+    // ── Kompass ────────────────────────────────────────────────────
 
     private ItemStack buildCompass(CrateType focused, int idx, int total) {
         ItemStack item = new ItemStack(Material.COMPASS);
         ItemMeta  meta = item.getItemMeta();
-
         meta.displayName(MessageUtil.parse(
                 focused.getGradient() + "<bold>" + focused.getDisplayName() + " Crate</bold></gradient>"
         ));
 
-        // Baue Crate-Dots: aktive Crate hervorgehoben
         CrateType[] types = CrateType.values();
         StringBuilder dots = new StringBuilder();
         for (int i = 0; i < total; i++) {
             if (i > 0) dots.append("  ");
-            if (i == idx) {
-                dots.append("<white><bold>[").append(types[i].getDisplayName()).append("]</bold></white>");
-            } else {
-                dots.append("<dark_gray>").append(types[i].getDisplayName()).append("</dark_gray>");
-            }
+            if (i == idx) dots.append("<white><bold>[").append(types[i].getDisplayName()).append("]</bold></white>");
+            else          dots.append("<dark_gray>").append(types[i].getDisplayName()).append("</dark_gray>");
         }
 
         List<Component> lore = new ArrayList<>();
@@ -162,7 +149,7 @@ public class CratesGUI {
         return item;
     }
 
-    // ── Key-Finder-Info ───────────────────────────────────────────────
+    // ── Key-Finder-Info ──────────────────────────────────────────────
 
     private ItemStack buildInfoItem(Player player) {
         int    kfLevel  = plugin.getHoeUpgradeManager().getKeyFinderLevel(player);
@@ -184,7 +171,7 @@ public class CratesGUI {
         return item;
     }
 
-    // ── Helper ──────────────────────────────────────────────────────────
+    // ── Helper ──────────────────────────────────────────────────────
 
     private ItemStack pane(Material mat) {
         ItemStack p = new ItemStack(mat);
