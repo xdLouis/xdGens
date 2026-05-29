@@ -28,14 +28,14 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 
 public class FieldListener implements Listener {
-    private final Main plugin;
-    private final FieldManager fieldManager;
+    private final Main            plugin;
+    private final FieldManager    fieldManager;
     private final CurrencyManager currency;
 
     public FieldListener(Main plugin) {
-        this.plugin = plugin;
+        this.plugin       = plugin;
         this.fieldManager = plugin.getFieldManager();
-        this.currency = plugin.getCurrencyManager();
+        this.currency     = plugin.getCurrencyManager();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -84,23 +84,18 @@ public class FieldListener implements Listener {
         plugin.getProgressionManager().addXp(player, finalXp);
         plugin.getActionBarManager().addHarvest(player, Math.toIntExact(finalTokens), finalXp);
 
-        // ── Panda Roller ──────────────────────────────────────────────────
-        // Feed into active session first
-        PandaRollSession.addHarvest(player.getUniqueId(), finalTokens, finalXp);
-
-        // Try to start a new session (only if panda_roller is unlocked, level >= 1)
+        // ── Panda Roller ────────────────────────────────────────────────────
         HoeUpgradeManager hoe = plugin.getHoeUpgradeManager();
         if (!PandaRollSession.isActive(player.getUniqueId()) && hoe.getPandaLevel(player) >= 1) {
-            double chance = hoe.getPandaSpawnChance(player);
-            if (Math.random() < chance) {
+            if (Math.random() < hoe.getPandaSpawnChance(player)) {
                 new PandaRollSession(
                         plugin, player,
-                        hoe.getPandaRewardBonus(player),
-                        140  // 7 seconds
+                        hoe.getPandaLevel(player),   // pass level, not bonus multiplier
+                        140                           // 7 seconds
                 ).start();
             }
         }
-        // ─────────────────────────────────────────────────────────────────
+        // ──────────────────────────────────────────────────────────────────
 
         // ── Key Finder ────────────────────────────────────────────────────
         if (plugin.getHoeUpgradeManager().getKeyFinderLevel(player) > 0) {

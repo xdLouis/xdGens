@@ -59,18 +59,17 @@ public class HoeUpgradeManager {
             290000, 360000
     };
 
-    // Panda costs: same exponential formula as key finder but slightly cheaper
-    private static final double PANDA_BASE_COST     = 300.0;
-    private static final double PANDA_LINEAR_SCALE  = 0.20;
-    private static final double PANDA_EXP_SCALE     = 1.034;
+    private static final double PANDA_BASE_COST    = 300.0;
+    private static final double PANDA_LINEAR_SCALE = 0.20;
+    private static final double PANDA_EXP_SCALE    = 1.034;
 
     private final Main plugin;
-    private final Map<UUID, Integer> cropLevels       = new HashMap<>();
-    private final Map<UUID, Integer> xpLevels         = new HashMap<>();
-    private final Map<UUID, Integer> tokenLevels      = new HashMap<>();
-    private final Map<UUID, Integer> keyFinderLevels  = new HashMap<>();
-    private final Map<UUID, Integer> hoeLevels        = new HashMap<>();
-    private final Map<UUID, Integer> pandaLevels      = new HashMap<>();
+    private final Map<UUID, Integer> cropLevels      = new HashMap<>();
+    private final Map<UUID, Integer> xpLevels        = new HashMap<>();
+    private final Map<UUID, Integer> tokenLevels     = new HashMap<>();
+    private final Map<UUID, Integer> keyFinderLevels = new HashMap<>();
+    private final Map<UUID, Integer> hoeLevels       = new HashMap<>();
+    private final Map<UUID, Integer> pandaLevels     = new HashMap<>();
 
     private File              file;
     private FileConfiguration config;
@@ -125,7 +124,7 @@ public class HoeUpgradeManager {
         catch (IOException e) { plugin.getLogger().severe("Could not save upgrades.yml: " + e.getMessage()); }
     }
 
-    // ── Getters ────────────────────────────────────────────────────────────
+    // ── Getters ──────────────────────────────────────────────────────────
 
     public int getCropLevel(Player p)       { return getCropLevel(p.getUniqueId()); }
     public int getCropBonus(Player p)       { return getCropLevel(p); }
@@ -141,36 +140,39 @@ public class HoeUpgradeManager {
     public double getTokenPercentBonus(Player p) { return getTokenLevel(p) * (TOKEN_GAIN_PER_LEVEL * 100.0); }
 
     public double getKeyFinderChance(Player p) {
-        int level = getKeyFinderLevel(p);
+        int    level    = getKeyFinderLevel(p);
         double progress = (double) level / MAX_KEY_FINDER_LEVEL;
         return KEY_FINDER_BASE_CHANCE + ((KEY_FINDER_MAX_CHANCE - KEY_FINDER_BASE_CHANCE) * Math.pow(progress, 0.82));
     }
 
-    public int    getHoeStageInMaterial(Player p)   { return ((getHoeLevel(p) - 1) % 3) + 1; }
-    public String getHoeMaterialName(Player p)       { return getHoeMaterialName(getHoeLevel(p)); }
-    public Material getHoeMaterial(Player p)         { return getHoeMaterial(getHoeLevel(p)); }
-    public double getHoeXpBonus(Player p)            { return (getHoeLevel(p) - 1) * HOE_XP_GAIN_PER_LEVEL; }
-    public double getHoeXpPercentBonus(Player p)     { return getHoeXpBonus(p) * 100.0; }
+    public int      getHoeStageInMaterial(Player p)  { return ((getHoeLevel(p) - 1) % 3) + 1; }
+    public String   getHoeMaterialName(Player p)      { return getHoeMaterialName(getHoeLevel(p)); }
+    public Material getHoeMaterial(Player p)          { return getHoeMaterial(getHoeLevel(p)); }
+    public double   getHoeXpBonus(Player p)           { return (getHoeLevel(p) - 1) * HOE_XP_GAIN_PER_LEVEL; }
+    public double   getHoeXpPercentBonus(Player p)    { return getHoeXpBonus(p) * 100.0; }
 
     private PandaRollerSkill pandaSkill() {
         return (PandaRollerSkill) SkillRegistry.get("panda_roller");
     }
 
-    public double getPandaSpawnChance(Player p)  { return pandaSkill().spawnChance(getPandaLevel(p)); }
-    public double getPandaRewardBonus(Player p)  { return pandaSkill().rewardBonus(getPandaLevel(p)); }
+    public double getPandaSpawnChance(Player p) { return pandaSkill().spawnChance(getPandaLevel(p)); }
+
+    /** @deprecated reward is now flat — use getPandaLevel() directly */
+    @Deprecated
+    public double getPandaRewardBonus(Player p) { return pandaSkill().rewardBonus(getPandaLevel(p)); }
 
     public boolean canUnlockPanda(Player p) {
         return plugin.getProgressionManager().getPrestige(p) >= PANDA_REQUIRED_PRESTIGE;
     }
 
     public float getWalkSpeed(Player p) {
-        int level = getHoeLevel(p);
+        int   level    = getHoeLevel(p);
         if (MAX_HOE_LEVEL <= 1) return BASE_WALK_SPEED;
         float progress = (float)(level - 1) / (MAX_HOE_LEVEL - 1);
         return BASE_WALK_SPEED + ((MAX_WALK_SPEED - BASE_WALK_SPEED) * progress);
     }
 
-    // ── Cost calculators ───────────────────────────────────────────────────
+    // ── Cost calculators ──────────────────────────────────────────────────
 
     public int getCropCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_CROP_LEVEL) return -1;
@@ -210,9 +212,9 @@ public class HoeUpgradeManager {
     public boolean upgradeKeyFinder(Player p) { return upgradeKeyFinderBulk(p, 1) == 1; }
 
     public boolean upgradeHoe(Player p) {
-        int current = getHoeLevel(p);
+        int  current = getHoeLevel(p);
         if (current >= MAX_HOE_LEVEL) return false;
-        long cost = getHoeCost(current + 1);
+        long cost    = getHoeCost(current + 1);
         if (!plugin.getCurrencyManager().removeMoney(p, cost)) return false;
         hoeLevels.put(p.getUniqueId(), current + 1);
         applyHoeStats(p);
@@ -224,9 +226,9 @@ public class HoeUpgradeManager {
         if (!canUnlockPanda(p)) return 0;
         int bought = 0;
         for (int i = 0; i < amount; i++) {
-            int current = getPandaLevel(p);
+            int  current = getPandaLevel(p);
             if (current >= MAX_PANDA_LEVEL) break;
-            long cost = getPandaCost(current + 1);
+            long cost    = getPandaCost(current + 1);
             if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
             pandaLevels.put(p.getUniqueId(), current + 1);
             bought++;
@@ -242,7 +244,7 @@ public class HoeUpgradeManager {
         for (int i = 0; i < amount; i++) {
             int current = getCropLevel(p);
             if (current >= MAX_CROP_LEVEL) break;
-            int cost = getCropCost(current + 1);
+            int cost    = getCropCost(current + 1);
             if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             cropLevels.put(p.getUniqueId(), current + 1);
             bought++;
@@ -254,9 +256,9 @@ public class HoeUpgradeManager {
     public int upgradeXpBulk(Player p, int amount) {
         int bought = 0;
         for (int i = 0; i < amount; i++) {
-            int current = getXpLevel(p);
+            int  current = getXpLevel(p);
             if (current >= MAX_XP_LEVEL) break;
-            long cost = getXpCost(current + 1);
+            long cost    = getXpCost(current + 1);
             if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
             xpLevels.put(p.getUniqueId(), current + 1);
             bought++;
@@ -268,9 +270,9 @@ public class HoeUpgradeManager {
     public int upgradeTokenBulk(Player p, int amount) {
         int bought = 0;
         for (int i = 0; i < amount; i++) {
-            int current = getTokenLevel(p);
+            int  current = getTokenLevel(p);
             if (current >= MAX_TOKEN_LEVEL) break;
-            long cost = getTokenCost(current + 1);
+            long cost    = getTokenCost(current + 1);
             if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
             tokenLevels.put(p.getUniqueId(), current + 1);
             bought++;
@@ -282,9 +284,9 @@ public class HoeUpgradeManager {
     public int upgradeKeyFinderBulk(Player p, int amount) {
         int bought = 0;
         for (int i = 0; i < amount; i++) {
-            int current = getKeyFinderLevel(p);
+            int  current = getKeyFinderLevel(p);
             if (current >= MAX_KEY_FINDER_LEVEL) break;
-            long cost = getKeyFinderCost(current + 1);
+            long cost    = getKeyFinderCost(current + 1);
             if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, (int) cost)) break;
             keyFinderLevels.put(p.getUniqueId(), current + 1);
             bought++;
@@ -337,8 +339,8 @@ public class HoeUpgradeManager {
     private int getHoeLevel(UUID uuid)       { return hoeLevels.getOrDefault(uuid, 1); }
     private int getPandaLevel(UUID uuid)     { return pandaLevels.getOrDefault(uuid, 0); }
 
-    private int clamp(int v, int max)  { return Math.max(0, Math.min(max, v)); }
-    private int clampHoe(int v)        { return Math.max(1, Math.min(MAX_HOE_LEVEL, v)); }
+    private int clamp(int v, int max) { return Math.max(0, Math.min(max, v)); }
+    private int clampHoe(int v)       { return Math.max(1, Math.min(MAX_HOE_LEVEL, v)); }
 
     private int getKnownPlayerCount() {
         return (int) getAllKnownPlayers().spliterator().estimateSize();
@@ -346,12 +348,12 @@ public class HoeUpgradeManager {
 
     private Iterable<UUID> getAllKnownPlayers() {
         Map<UUID, Boolean> all = new HashMap<>();
-        cropLevels.keySet().forEach(u -> all.put(u, true));
-        xpLevels.keySet().forEach(u -> all.put(u, true));
-        tokenLevels.keySet().forEach(u -> all.put(u, true));
+        cropLevels.keySet().forEach(u      -> all.put(u, true));
+        xpLevels.keySet().forEach(u        -> all.put(u, true));
+        tokenLevels.keySet().forEach(u     -> all.put(u, true));
         keyFinderLevels.keySet().forEach(u -> all.put(u, true));
-        hoeLevels.keySet().forEach(u -> all.put(u, true));
-        pandaLevels.keySet().forEach(u -> all.put(u, true));
+        hoeLevels.keySet().forEach(u       -> all.put(u, true));
+        pandaLevels.keySet().forEach(u     -> all.put(u, true));
         return all.keySet();
     }
 }
