@@ -66,8 +66,6 @@ public class CrateListener implements Listener {
         }
     }
 
-    // ── Pouch right-click ────────────────────────────────────────────
-
     @EventHandler(priority = EventPriority.HIGH)
     public void onPouchUse(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
@@ -94,8 +92,6 @@ public class CrateListener implements Listener {
                 + NumberUtil.format(value) + " " + readable(type) + "</white>");
     }
 
-    // ── Open one ───────────────────────────────────────────────────
-
     private void handleOpenOne(Player player, CrateType type) {
         if (!plugin.getVirtualKeyManager().consumeKey(player, type)) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
@@ -104,13 +100,11 @@ public class CrateListener implements Listener {
         }
         CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
         redeemPouches(player, result);
-        autoRedeemOrGiveVoucher(player, result);
+        boolean isNew = autoRedeemOrStoreVoucher(player, result);
         playCrateSound(player);
-        sendOpenMessage(player, type, result);
+        sendOpenMessage(player, type, result, isNew);
         new CratesGUI(plugin).open(player);
     }
-
-    // ── Open all ───────────────────────────────────────────────────
 
     private void handleOpenAll(Player player, CrateType type) {
         int total = plugin.getVirtualKeyManager().getKeys(player, type);
@@ -139,7 +133,7 @@ public class CrateListener implements Listener {
                 }
             }
             if (result.hasVoucher()) {
-                boolean isNew = autoRedeemOrGiveVoucher(player, result);
+                boolean isNew = autoRedeemOrStoreVoucher(player, result);
                 if (isNew) newCosmetics++; else dupVouchers++;
             }
         }
@@ -158,33 +152,25 @@ public class CrateListener implements Listener {
             tierCounts.forEach((tier, cnt) -> sb.append(tier.getDisplayName()).append(" <dark_gray>x").append(cnt).append("</dark_gray>  "));
         }
         if (newCosmetics > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <green>\u2728 ").append(newCosmetics).append(" new cosmetic(s) auto-unlocked!</green>");
-        if (dupVouchers  > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <yellow>").append(dupVouchers).append(" duplicate voucher(s) → added to inventory</yellow>");
+        if (dupVouchers  > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <yellow>").append(dupVouchers).append(" duplicate(s) stored → cash out via /cosmetics</yellow>");
         sb.append("\n<dark_gray>\u2514\u2500</dark_gray>");
         MessageUtil.sendRaw(player, sb.toString());
         new CratesGUI(plugin).open(player);
     }
 
-    // ── Auto-redeem logic ──────────────────────────────────────────
-
     /**
-     * If the cosmetic is new: unlock silently, return true.
-     * If already owned:       give the voucher item to inventory, return false.
+     * New cosmetic  → unlock, return true.
+     * Duplicate     → addVoucher (stored in manager), return false.
      */
-    private boolean autoRedeemOrGiveVoucher(Player player, CrateManager.CrateOpenResult result) {
+    private boolean autoRedeemOrStoreVoucher(Player player, CrateManager.CrateOpenResult result) {
         if (!result.hasVoucher()) return false;
         CrateReward cosmetic = result.rolledCosmetic();
         boolean isNew = plugin.getPlayerCosmeticManager().unlock(player, cosmetic);
-        if (!isNew) {
-            // duplicate — give physical voucher
-            var leftovers = player.getInventory().addItem(result.voucherItem());
-            leftovers.values().forEach(l -> player.getWorld().dropItemNaturally(player.getLocation(), l));
-        }
+        if (!isNew) plugin.getPlayerCosmeticManager().addVoucher(player, cosmetic);
         return isNew;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────
-
-    private void sendOpenMessage(Player player, CrateType type, CrateManager.CrateOpenResult result) {
+    private void sendOpenMessage(Player player, CrateType type, CrateManager.CrateOpenResult result, boolean cosmeticIsNew) {
         StringBuilder sb = new StringBuilder();
         sb.append(MessageUtil.PREFIX).append(" ")
           .append(type.getGradient()).append(type.getDisplayName()).append(" Crate</gradient>")
@@ -198,15 +184,16 @@ public class CrateListener implements Listener {
               .append("</white> <gray>").append(readable(pt)).append("</gray>");
         }
         if (result.hasVoucher()) {
-            boolean isNew = plugin.getPlayerCosmeticManager().hasCosmetic(player, result.rolledCosmetic());
-            if (isNew) {
+            if (cosmeticIsNew) {
                 sb.append("\n  <dark_gray>\u2514</dark_gray> <green>\u2728 Auto-unlocked:</green> ")
                   .append(result.rolledCosmetic().tierLabel())
                   .append(" <white>").append(result.rolledCosmetic().getDisplayName()).append("</white>");
             } else {
-                sb.append("\n  <dark_gray>\u2514</dark_gray> <yellow>Duplicate voucher → added to inventory:</yellow> ")
+                int stored = plugin.getPlayerCosmeticManager().getVoucherCount(player, result.rolledCosmetic());
+                sb.append("\n  <dark_gray>\u2514</dark_gray> <yellow>Duplicate stored:</yellow> ")
                   .append(result.rolledCosmetic().tierLabel())
-                  .append(" <white>").append(result.rolledCosmetic().getDisplayName()).append("</white>");
+                  .append(" <white>").append(result.rolledCosmetic().getDisplayName())
+                  .append("</white> <dark_gray>(x").append(stored).append(" in /cosmetics)</dark_gray>");
             }
         }
         MessageUtil.sendRaw(player, sb.toString());
@@ -231,9 +218,8 @@ public class CrateListener implements Listener {
 
     private CrateType resolveBySlot(int slot, int[] slots) {
         CrateType[] types = CrateType.values();
-        for (int i = 0; i < slots.length && i < types.length; i++) {
+        for (int i = 0; i < slots.length && i < types.length; i++)
             if (slots[i] == slot) return types[i];
-        }
         return null;
     }
 

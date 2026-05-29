@@ -91,7 +91,6 @@ public class CosmeticsGUI {
         for (int s : CONTENT_SLOTS)    inv.setItem(s, null);
         for (int i = 36; i < 54; i++)  inv.setItem(i, filler);
 
-        // ── Tab buttons ───────────────────────────────────────────────
         inv.setItem(SLOT_TAB_TAGS, tabBtn(
                 tab == Tab.TAGS, Material.NAME_TAG,
                 "<aqua><bold>Chat Tags</bold></aqua>",
@@ -111,7 +110,6 @@ public class CosmeticsGUI {
 
         for (int i = 4; i <= 6; i++) inv.setItem(i, filler());
 
-        // ── Filter/Sort button (cycles on click — no new inventory) ───
         Sort nextSort = sort.next();
         inv.setItem(SLOT_FILTER, buildItem(sort.icon,
                 "<yellow><bold>\uD83D\uDD04 Sort: " + sort.label + "</bold></yellow>",
@@ -122,7 +120,6 @@ public class CosmeticsGUI {
                 ),
                 false));
 
-        // ── Unequip button ────────────────────────────────────────────
         Optional<CrateReward> active = switch (tab) {
             case TAGS        -> mgr.getActiveTag(player);
             case NAME_COLORS -> mgr.getActiveColor(player);
@@ -144,7 +141,6 @@ public class CosmeticsGUI {
                         hasActive ? "<red>Click to unequip." : "<dark_gray>Nothing equipped."),
                 false));
 
-        // ── Collect + sort ────────────────────────────────────────────
         CrateReward.Type type = switch (tab) {
             case TAGS        -> CrateReward.Type.TAG;
             case NAME_COLORS -> CrateReward.Type.NAME_COLOR;
@@ -171,10 +167,10 @@ public class CosmeticsGUI {
             CrateReward r    = all.get(i);
             boolean unlocked = collection.contains(r);
             boolean isActive = active.isPresent() && active.get() == r;
-            inv.setItem(CONTENT_SLOTS[i - start], buildCosmeticItem(r, unlocked, isActive, player));
+            int     stored   = mgr.getVoucherCount(player, r);
+            inv.setItem(CONTENT_SLOTS[i - start], buildCosmeticItem(r, unlocked, isActive, stored, player));
         }
 
-        // ── Pagination ────────────────────────────────────────────────
         inv.setItem(SLOT_PREV, safePage > 0
                 ? buildItem(Material.ARROW, "<yellow><bold>\u25c4 Previous Page</bold></yellow>",
                             List.of("<gray>Page " + safePage + " of " + totalPages), false)
@@ -189,8 +185,6 @@ public class CosmeticsGUI {
 
         player.openInventory(inv);
     }
-
-    // ── decode ────────────────────────────────────────────────────────
 
     public static TabPage decode(String plainTitle) {
         String[] parts = plainTitle.split("\\|");
@@ -210,8 +204,6 @@ public class CosmeticsGUI {
     }
 
     public record TabPage(Tab tab, int page, Sort sort) {}
-
-    // ── public static comparator (shared with Listener) ──────────────
 
     public static Comparator<CrateReward> buildComparator(Sort sort,
                                                            Set<CrateReward> collection,
@@ -234,16 +226,14 @@ public class CosmeticsGUI {
                 long ta = mgr.getUnlockTimestamp(player, a);
                 long tb = mgr.getUnlockTimestamp(player, b);
                 if (ta == 0 && tb == 0) return 0;
-                if (ta == 0) return 1;
-                if (tb == 0) return -1;
+                if (ta == 0) return 1; if (tb == 0) return -1;
                 return Long.compare(tb, ta);
             };
             case OLDEST   -> (a, b) -> {
                 long ta = mgr.getUnlockTimestamp(player, a);
                 long tb = mgr.getUnlockTimestamp(player, b);
                 if (ta == 0 && tb == 0) return 0;
-                if (ta == 0) return 1;
-                if (tb == 0) return -1;
+                if (ta == 0) return 1; if (tb == 0) return -1;
                 return Long.compare(ta, tb);
             };
             case UNLOCKED -> (a, b) -> {
@@ -260,8 +250,7 @@ public class CosmeticsGUI {
 
     // ── item builders ─────────────────────────────────────────────────
 
-    private ItemStack buildCosmeticItem(CrateReward r, boolean unlocked, boolean active, Player player) {
-        // locked items get red glass to stand out
+    private ItemStack buildCosmeticItem(CrateReward r, boolean unlocked, boolean active, int storedVouchers, Player player) {
         Material mat = unlocked ? r.getIcon() : Material.RED_STAINED_GLASS_PANE;
         String previewRaw;
         if (r.isColor())          previewRaw = r.getCosmeticFormat().replace("{name}", player.getName());
@@ -298,6 +287,12 @@ public class CosmeticsGUI {
             lore.add("  " + previewRaw);
             lore.add("");
             lore.add(active ? "<green>\u2714 Equipped \u2014 Click to <red>unequip</red>" : "<yellow>\u25ba Click to equip!");
+            // voucher bank line
+            if (storedVouchers > 0) {
+                lore.add("");
+                lore.add("<gold>\uD83C\uDFF7 In possession: " + storedVouchers);
+                lore.add("<dark_gray>[Shift-Click to cash out 1 voucher]");
+            }
         } else {
             lore.add("<red>\u2718 Locked");
             lore.add("<dark_gray>Earn from crates.");

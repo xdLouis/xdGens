@@ -43,20 +43,16 @@ public class CosmeticsGUIListener implements Listener {
         PlayerCosmeticManager mgr = plugin.getPlayerCosmeticManager();
         CosmeticsGUI gui = new CosmeticsGUI(plugin);
 
-        // tab switches
         if (slot == 0) { gui.openTags(player);       return; }
         if (slot == 1) { gui.openColors(player);     return; }
         if (slot == 2) { gui.openChatColors(player); return; }
         if (slot == 3) { gui.openGlow(player);       return; }
 
-        // filter
         if (slot == CosmeticsGUI.SLOT_FILTER) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
             gui.open(player, tab, page, sort.next());
             return;
         }
-
-        // pagination
         if (slot == CosmeticsGUI.SLOT_PREV) {
             if (page > 0) gui.open(player, tab, page - 1, sort);
             return;
@@ -65,8 +61,6 @@ public class CosmeticsGUIListener implements Listener {
             gui.open(player, tab, page + 1, sort);
             return;
         }
-
-        // unequip
         if (slot == 8) {
             switch (tab) {
                 case TAGS        -> mgr.setActiveTag(player, null);
@@ -81,7 +75,6 @@ public class CosmeticsGUIListener implements Listener {
             return;
         }
 
-        // cosmetic content slots
         int contentIdx = slotToContentIdx(slot);
         if (contentIdx < 0) return;
 
@@ -104,32 +97,33 @@ public class CosmeticsGUIListener implements Listener {
         };
 
         all.sort(CosmeticsGUI.buildComparator(sort, collection, player, mgr));
-
         if (globalIdx >= all.size()) return;
         CrateReward reward = all.get(globalIdx);
 
-        // ── SHIFT-CLICK: Voucher auszahlen ─────────────────────────────
+        // ── SHIFT-CLICK: cash out 1 stored voucher ─────────────────────────
         if (event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) {
-            if (!mgr.hasCosmetic(player, reward)) {
+            int stored = mgr.getVoucherCount(player, reward);
+            if (stored <= 0) {
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1f);
-                MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <red>Du besitzt <white>"
-                        + reward.getDisplayName() + "</white> nicht.</red>");
+                MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                        + " <red>You have no stored vouchers for <white>"
+                        + reward.getDisplayName() + "</white>.</red>");
                 return;
             }
-            // revoke from collection
-            mgr.revoke(player, reward);
-            // give physical voucher
+            mgr.consumeVoucher(player, reward);
             ItemStack voucher = CosmeticVoucherItem.create(plugin, reward);
             var leftovers = player.getInventory().addItem(voucher);
             leftovers.values().forEach(l -> player.getWorld().dropItemNaturally(player.getLocation(), l));
             player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 0.8f);
-            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <yellow>\uD83C\uDFF7 Voucher ausgezahlt: "
-                    + reward.tierLabel() + " <white>" + reward.getDisplayName() + "</white></yellow>");
+            int remaining = mgr.getVoucherCount(player, reward);
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <yellow>\uD83C\uDFF7 Voucher cashed out: "
+                    + reward.tierLabel() + " <white>" + reward.getDisplayName() + "</white>"
+                    + (remaining > 0 ? " <dark_gray>(" + remaining + " remaining)</dark_gray>" : "") + "</yellow>");
             gui.open(player, tab, page, sort);
             return;
         }
 
-        // ── Normal click: Equip / Unequip ──────────────────────────────
+        // ── Normal click: equip / unequip ───────────────────────────────
         if (!mgr.hasCosmetic(player, reward)) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <red>You haven't unlocked <white>"
