@@ -2,27 +2,8 @@ package de.louis.xdGens.main;
 
 import de.louis.xdGens.command.*;
 import de.louis.xdGens.field.FieldManager;
-import de.louis.xdGens.listener.CosmeticVoucherListener;
-import de.louis.xdGens.listener.CosmeticsGUIListener;
-import de.louis.xdGens.listener.CrateListener;
-import de.louis.xdGens.listener.DropListener;
-import de.louis.xdGens.listener.FieldListener;
-import de.louis.xdGens.listener.HoeProtectionListener;
-import de.louis.xdGens.listener.HoeUpgradeListener;
-import de.louis.xdGens.listener.JoinListener;
-import de.louis.xdGens.listener.LobbyProtectionListener;
-import de.louis.xdGens.listener.ShopListener;
-import de.louis.xdGens.listener.WorkstationListener;
-import de.louis.xdGens.manager.ActionBarManager;
-import de.louis.xdGens.manager.BackpackManager;
-import de.louis.xdGens.manager.CrateManager;
-import de.louis.xdGens.manager.CurrencyManager;
-import de.louis.xdGens.manager.HoeUpgradeManager;
-import de.louis.xdGens.manager.PlayerCosmeticManager;
-import de.louis.xdGens.manager.ProgressionManager;
-import de.louis.xdGens.manager.ScoreboardManager;
-import de.louis.xdGens.manager.VirtualKeyManager;
-import de.louis.xdGens.manager.WorkstationManager;
+import de.louis.xdGens.listener.*;
+import de.louis.xdGens.manager.*;
 import de.louis.xdGens.util.MessageUtil;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -73,6 +54,7 @@ public final class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CrateListener(this), this);
         getServer().getPluginManager().registerEvents(new CosmeticVoucherListener(this), this);
         getServer().getPluginManager().registerEvents(new CosmeticsGUIListener(this), this);
+        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
         getServer().getPluginManager().registerEvents(lobbyProtectionListener, this);
 
         lobbyProtectionListener.applyToAllWorlds();
