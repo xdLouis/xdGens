@@ -19,6 +19,7 @@ import java.util.*;
  * – Spawns 1.5 blocks above the highest block (no underground-bugfix needed)
  * – Adult size  (no setBaby())
  * – Breaks nearby fully-grown wheat every 2 s; wheat re-grows via scheduleRegrow
+ * – Wanders around the field by giving it a new move target every 3 s
  * – Pays a FIXED token + XP reward based on panda level × prestige multiplier
  *   (independent of how much the player has farmed during the session)
  */
@@ -30,8 +31,8 @@ public class PandaRollSession {
      * Base flat reward per panda visit at level 1.
      * Scales linearly: reward = BASE × level × prestigeMultiplier
      */
-    private static final double BASE_TOKEN_REWARD = 80.0;   // tokens at lv 1 prestige 0
-    private static final double BASE_XP_REWARD    = 120.0;  // xp     at lv 1 prestige 0
+    private static final double BASE_TOKEN_REWARD = 1500.0;  // tokens at lv 1 prestige 0
+    private static final double BASE_XP_REWARD    = 2000.0;  // xp     at lv 1 prestige 0
 
     /** How often (in ticks) the panda tries to break a wheat block around it. */
     private static final long WHEAT_BREAK_INTERVAL = 40L; // every 2 s
@@ -39,6 +40,8 @@ public class PandaRollSession {
     private static final int  WHEAT_BREAK_COUNT    = 3;
     /** Wheat re-grow delay in ticks (same as field regrow-delay). */
     private static final long REGROW_DELAY          = 100L;
+    /** How often (in ticks) the panda picks a new wander destination. */
+    private static final int  WANDER_INTERVAL       = 60; // every 3 s
 
     private final Main   plugin;
     private final Player player;
@@ -93,6 +96,7 @@ public class PandaRollSession {
 
         final int[] ticksLeft     = {durationTicks};
         final int[] wheatCooldown = {0};
+        final int[] wanderCooldown = {0};
 
         task = new BukkitRunnable() {
             @Override
@@ -113,9 +117,32 @@ public class PandaRollSession {
                     wheatCooldown[0] = (int) WHEAT_BREAK_INTERVAL;
                 }
 
+                // Wandering: move to a random nearby location every WANDER_INTERVAL ticks
+                wanderCooldown[0] -= 4;
+                if (wanderCooldown[0] <= 0) {
+                    wander(base);
+                    wanderCooldown[0] = WANDER_INTERVAL;
+                }
+
                 ticksLeft[0] -= 4;
             }
         }.runTaskTimer(plugin, 0L, 4L);
+    }
+
+    // ── Wandering ────────────────────────────────────────────────────────
+
+    private void wander(Location center) {
+        if (panda == null || !panda.isValid()) return;
+        World world = panda.getWorld();
+        if (world == null) return;
+
+        double offX = (Math.random() - 0.5) * 10;
+        double offZ = (Math.random() - 0.5) * 10;
+        int    tx   = (int)(center.getX() + offX);
+        int    tz   = (int)(center.getZ() + offZ);
+        int    ty   = world.getHighestBlockYAt(tx, tz);
+        Location target = new Location(world, tx + 0.5, ty, tz + 0.5);
+        panda.getPathfinder().moveTo(target, 1.0);
     }
 
     // ── Wheat breaking ──────────────────────────────────────────────────
@@ -142,7 +169,7 @@ public class PandaRollSession {
             }
         }
 
-        // shuffle so the panda doesn’t always eat the same corner
+        // shuffle so the panda doesn't always eat the same corner
         Collections.shuffle(candidates);
         int broken = 0;
         for (Block b : candidates) {
