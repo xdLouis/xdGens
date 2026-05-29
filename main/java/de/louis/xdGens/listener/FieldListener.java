@@ -5,6 +5,7 @@ import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.CurrencyManager;
 import de.louis.xdGens.manager.HoeUpgradeManager;
 import de.louis.xdGens.skill.PandaRollSession;
+import de.louis.xdGens.skill.TntBombSession;
 import de.louis.xdGens.util.CustomItemUtil;
 import de.louis.xdGens.util.HoeUtil;
 import de.louis.xdGens.util.MessageUtil;
@@ -90,9 +91,17 @@ public class FieldListener implements Listener {
             if (Math.random() < hoe.getPandaSpawnChance(player)) {
                 new PandaRollSession(
                         plugin, player,
-                        hoe.getPandaLevel(player),   // pass level, not bonus multiplier
-                        140                           // 7 seconds
+                        hoe.getPandaLevel(player),
+                        140
                 ).start();
+            }
+        }
+        // ──────────────────────────────────────────────────────────────────
+
+        // ── TNT Bomber ────────────────────────────────────────────────────
+        if (hoe.getTntLevel(player) >= 1) {
+            if (Math.random() < hoe.getTntSpawnChance(player)) {
+                TntBombSession.trigger(plugin, player, hoe.getTntLevel(player));
             }
         }
         // ──────────────────────────────────────────────────────────────────
