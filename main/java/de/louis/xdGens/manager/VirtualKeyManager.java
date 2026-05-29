@@ -37,10 +37,15 @@ public class VirtualKeyManager {
         load();
     }
 
-    // ── public API ──────────────────────────────────────────────────────
+    // ── public API ─────────────────────────────────────────────
 
     public int getKeys(Player player, CrateType type) {
         return keys.getOrDefault(player.getUniqueId(), Map.of()).getOrDefault(type, 0);
+    }
+
+    /** Returns how many keys the player currently has for the given type. */
+    public int keyCount(Player player, CrateType type) {
+        return getKeys(player, type);
     }
 
     public void addKey(Player player, CrateType type) {
@@ -71,7 +76,7 @@ public class VirtualKeyManager {
         return count;
     }
 
-    // ── persistence ─────────────────────────────────────────────────────
+    // ── persistence ───────────────────────────────────────────
 
     private void setup() {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
