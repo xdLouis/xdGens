@@ -51,7 +51,7 @@ public class HoeUpgradeListener implements Listener {
                 && clicked.getType() == Material.SMITHING_TABLE
                 && plugin.getWorkstationManager().isWorkstation(clicked.getLocation())) {
             event.setCancelled(true);
-            player.performCommand("workstation");
+            plugin.getWorkstationManager().useWorkstation(player);
             return;
         }
 
