@@ -16,39 +16,36 @@ import java.util.*;
 /**
  * One panda-roll event for a single player.
  *
- * – Spawns 1.5 blocks above the highest block (no underground-bugfix needed)
- * – Adult size  (no setBaby())
- * – Breaks nearby fully-grown wheat every 2 s; wheat re-grows via scheduleRegrow
+ * – Spawns 1.5 blocks above the highest block
+ * – Adult size (no setBaby())
+ * – Breaks nearby fully-grown wheat every 1 s in a ±4 block radius
  * – Wanders around the field by giving it a new move target every 3 s
  * – Pays a FIXED token + XP reward based on panda level × prestige multiplier
- *   (independent of how much the player has farmed during the session)
  */
 public class PandaRollSession {
 
     private static final Map<UUID, PandaRollSession> ACTIVE = new HashMap<>();
 
-    /**
-     * Base flat reward per panda visit at level 1.
-     * Scales linearly: reward = BASE × level × prestigeMultiplier
-     */
-    private static final double BASE_TOKEN_REWARD = 1500.0;  // tokens at lv 1 prestige 0
-    private static final double BASE_XP_REWARD    = 2000.0;  // xp     at lv 1 prestige 0
+    private static final double BASE_TOKEN_REWARD = 1500.0;
+    private static final double BASE_XP_REWARD    = 2000.0;
 
-    /** How often (in ticks) the panda tries to break a wheat block around it. */
-    private static final long WHEAT_BREAK_INTERVAL = 40L; // every 2 s
+    /** How often (in ticks) the panda tries to break wheat. */
+    private static final long WHEAT_BREAK_INTERVAL = 20L; // every 1 s
     /** How many wheat blocks it breaks per interval. */
-    private static final int  WHEAT_BREAK_COUNT    = 3;
-    /** Wheat re-grow delay in ticks (same as field regrow-delay). */
-    private static final long REGROW_DELAY          = 100L;
+    private static final int  WHEAT_BREAK_COUNT    = 6;
+    /** Search radius (blocks) around the panda for wheat. */
+    private static final int  WHEAT_RADIUS         = 4;
+    /** Wheat re-grow delay in ticks. */
+    private static final long REGROW_DELAY         = 100L;
     /** How often (in ticks) the panda picks a new wander destination. */
-    private static final int  WANDER_INTERVAL       = 60; // every 3 s
+    private static final int  WANDER_INTERVAL      = 60; // every 3 s
 
     private final Main   plugin;
     private final Player player;
     private final int    pandaLevel;
     private final int    durationTicks;
 
-    private Panda     panda;
+    private Panda      panda;
     private BukkitTask task;
 
     public PandaRollSession(Main plugin, Player player, int pandaLevel, int durationTicks) {
@@ -58,11 +55,8 @@ public class PandaRollSession {
         this.durationTicks = durationTicks;
     }
 
-    // ── Static helpers ──────────────────────────────────────────────────
-
     public static boolean isActive(UUID uuid) { return ACTIVE.containsKey(uuid); }
 
-    /** No longer used for reward accumulation — kept for API compatibility. */
     public static void addHarvest(UUID uuid, long tokens, double xp) { /* no-op */ }
 
     // ── Session lifecycle ───────────────────────────────────────────────
@@ -71,18 +65,15 @@ public class PandaRollSession {
         if (ACTIVE.containsKey(player.getUniqueId())) return;
         ACTIVE.put(player.getUniqueId(), this);
 
-        // ── Spawn location: random offset + 1.5 blocks above surface ────────
-        Location base  = player.getLocation();
-        double   offX  = (Math.random() - 0.5) * 8;
-        double   offZ  = (Math.random() - 0.5) * 8;
-        int      bx    = (int)(base.getX() + offX);
-        int      bz    = (int)(base.getZ() + offZ);
-        int      topY  = base.getWorld().getHighestBlockYAt(bx, bz);
+        Location base = player.getLocation();
+        double   offX = (Math.random() - 0.5) * 8;
+        double   offZ = (Math.random() - 0.5) * 8;
+        int      bx   = (int)(base.getX() + offX);
+        int      bz   = (int)(base.getZ() + offZ);
+        int      topY = base.getWorld().getHighestBlockYAt(bx, bz);
         Location spawn = new Location(base.getWorld(), bx + 0.5, topY + 1.5, bz + 0.5);
 
-        // ── Spawn adult panda ─────────────────────────────────────────
         panda = (Panda) player.getWorld().spawnEntity(spawn, EntityType.PANDA);
-        // Do NOT call setBaby() — default is already adult
         panda.setAI(true);
         panda.setInvulnerable(true);
         panda.setSilent(false);
@@ -94,8 +85,8 @@ public class PandaRollSession {
         MessageUtil.sendRaw(player, MessageUtil.PREFIX
                 + " <gradient:#a8e6cf:#88d8b0>\uD83D\uDC3C A Panda appeared on your field!</gradient>");
 
-        final int[] ticksLeft     = {durationTicks};
-        final int[] wheatCooldown = {0};
+        final int[] ticksLeft      = {durationTicks};
+        final int[] wheatCooldown  = {0};
         final int[] wanderCooldown = {0};
 
         task = new BukkitRunnable() {
@@ -107,17 +98,14 @@ public class PandaRollSession {
                     return;
                 }
 
-                // Crop particles
                 spawnCropParticles(panda.getLocation());
 
-                // Wheat breaking
                 wheatCooldown[0] -= 4;
                 if (wheatCooldown[0] <= 0) {
                     breakNearbyWheat(panda.getLocation());
                     wheatCooldown[0] = (int) WHEAT_BREAK_INTERVAL;
                 }
 
-                // Wandering: move to a random nearby location every WANDER_INTERVAL ticks
                 wanderCooldown[0] -= 4;
                 if (wanderCooldown[0] <= 0) {
                     wander(base);
@@ -141,8 +129,7 @@ public class PandaRollSession {
         int    tx   = (int)(center.getX() + offX);
         int    tz   = (int)(center.getZ() + offZ);
         int    ty   = world.getHighestBlockYAt(tx, tz);
-        Location target = new Location(world, tx + 0.5, ty, tz + 0.5);
-        panda.getPathfinder().moveTo(target, 1.0);
+        panda.getPathfinder().moveTo(new Location(world, tx + 0.5, ty, tz + 0.5), 1.0);
     }
 
     // ── Wheat breaking ──────────────────────────────────────────────────
@@ -152,10 +139,9 @@ public class PandaRollSession {
         if (world == null) return;
 
         List<Block> candidates = new ArrayList<>();
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dz = -2; dz <= 2; dz++) {
-                // check at panda feet level and one below
-                for (int dy = -1; dy <= 0; dy++) {
+        for (int dx = -WHEAT_RADIUS; dx <= WHEAT_RADIUS; dx++) {
+            for (int dz = -WHEAT_RADIUS; dz <= WHEAT_RADIUS; dz++) {
+                for (int dy = -1; dy <= 1; dy++) {
                     Block b = world.getBlockAt(
                             center.getBlockX() + dx,
                             center.getBlockY() + dy,
@@ -169,7 +155,6 @@ public class PandaRollSession {
             }
         }
 
-        // shuffle so the panda doesn't always eat the same corner
         Collections.shuffle(candidates);
         int broken = 0;
         for (Block b : candidates) {
@@ -230,10 +215,9 @@ public class PandaRollSession {
         if (panda != null && panda.isValid()) panda.remove();
         if (task  != null) { try { task.cancel(); } catch (Exception ignored) {} }
 
-        // Fixed flat reward: BASE × pandaLevel × prestigeMultiplier
-        double prestigeMult  = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
-        long   flatTokens    = Math.round(BASE_TOKEN_REWARD * pandaLevel * prestigeMult);
-        double flatXp        = BASE_XP_REWARD    * pandaLevel * prestigeMult;
+        double prestigeMult = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
+        long   flatTokens   = Math.round(BASE_TOKEN_REWARD * pandaLevel * prestigeMult);
+        double flatXp       = BASE_XP_REWARD * pandaLevel * prestigeMult;
 
         player.playSound(player.getLocation(), Sound.ENTITY_PANDA_SNEEZE, 1f, 1.0f);
         player.spawnParticle(Particle.HAPPY_VILLAGER,
