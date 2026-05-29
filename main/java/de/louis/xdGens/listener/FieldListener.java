@@ -5,6 +5,7 @@ import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.CurrencyManager;
 import de.louis.xdGens.util.CustomItemUtil;
 import de.louis.xdGens.util.HoeUtil;
+import de.louis.xdGens.util.MessageUtil;
 import de.louis.xdGens.util.Rng;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -50,7 +51,6 @@ public class FieldListener implements Listener {
         }
 
         ItemStack tool = player.getInventory().getItemInMainHand();
-
         if (!HoeUtil.isXdHoe(tool)) {
             event.setCancelled(true);
             return;
@@ -75,17 +75,32 @@ public class FieldListener implements Listener {
         double xpMin = plugin.getConfig().getDouble("rewards.wheat.xp.min", 8.0);
         double xpMax = plugin.getConfig().getDouble("rewards.wheat.xp.max", 16.0);
 
-        int tokens = Rng.between(tokenMin, tokenMax);
-        double xp = Rng.between(xpMin, xpMax);
+        int baseTokens = Rng.between(tokenMin, tokenMax);
+        long finalTokens = Math.round(baseTokens * plugin.getHoeUpgradeManager().getTokenMultiplier(player));
 
-        player.getInventory().addItem(CustomItemUtil.createFarmWheat(plugin, 1));
-        int cropBonus = plugin.getHoeUpgradeManager().getCropBonus(player);
-        if (cropBonus > 0) {
-            player.getInventory().addItem(CustomItemUtil.createFarmWheat(plugin, cropBonus));
+        double baseXp = Rng.between(xpMin, xpMax);
+        double finalXp = baseXp * plugin.getHoeUpgradeManager().getXpMultiplier(player);
+
+        int totalCrops = 1 + plugin.getHoeUpgradeManager().getCropBonus(player);
+
+        boolean inventoryFull = player.getInventory().firstEmpty() == -1;
+        if (inventoryFull) {
+            player.sendTitle(
+                    MessageUtil.strip("<red><bold>Inventory Full</bold></red>"),
+                    MessageUtil.strip("<gray>Free up some space before harvesting more.</gray>"),
+                    5, 30, 10
+            );
         }
-        currency.addTokens(player, tokens);
-        plugin.getProgressionManager().addXp(player, xp);
-        plugin.getActionBarManager().addHarvest(player, tokens, xp);
+
+        ItemStack cropReward = CustomItemUtil.createFarmWheat(plugin, totalCrops);
+        var leftovers = player.getInventory().addItem(cropReward);
+        leftovers.values().forEach(left ->
+                player.getWorld().dropItemNaturally(player.getLocation(), left)
+        );
+
+        currency.addTokens(player, Math.toIntExact(finalTokens));
+        plugin.getProgressionManager().addXp(player, finalXp);
+        plugin.getActionBarManager().addHarvest(player, Math.toIntExact(finalTokens), finalXp);
 
         scheduleRegrow(block);
     }
@@ -94,7 +109,8 @@ public class FieldListener implements Listener {
     public void onMoistureChange(MoistureChangeEvent event) {
         if (event.getBlock().getType() == Material.FARMLAND) {
             event.setCancelled(true);
-            Bukkit.getScheduler().runTask(plugin, () -> FieldManager.moisturizeFarmland(event.getBlock()));
+            Bukkit.getScheduler().runTask(plugin, () ->
+                    FieldManager.moisturizeFarmland(event.getBlock()));
         }
     }
 

@@ -4,11 +4,22 @@ import de.louis.xdGens.command.PrestigeCommand;
 import de.louis.xdGens.command.TestFieldCommand;
 import de.louis.xdGens.command.WorkstationCommand;
 import de.louis.xdGens.field.FieldManager;
-import de.louis.xdGens.listener.*;
-import de.louis.xdGens.manager.*;
+import de.louis.xdGens.hologram.HologramManager;
+import de.louis.xdGens.listener.DropListener;
+import de.louis.xdGens.listener.FieldListener;
+import de.louis.xdGens.listener.HoeProtectionListener;
+import de.louis.xdGens.listener.HoeUpgradeListener;
+import de.louis.xdGens.listener.JoinListener;
+import de.louis.xdGens.listener.LobbyProtectionListener;
+import de.louis.xdGens.listener.WorkstationListener;
+import de.louis.xdGens.manager.ActionBarManager;
+import de.louis.xdGens.manager.CurrencyManager;
+import de.louis.xdGens.manager.HoeUpgradeManager;
 
+import de.louis.xdGens.manager.ProgressionManager;
+import de.louis.xdGens.manager.ScoreboardManager;
+import de.louis.xdGens.manager.WorkstationManager;
 import de.louis.xdGens.util.MessageUtil;
-import de.louis.xdGens.workstation.WorkstationManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Main extends JavaPlugin {
@@ -22,8 +33,9 @@ public final class Main extends JavaPlugin {
     private ActionBarManager actionBarManager;
     private ScoreboardManager scoreboardManager;
     private ProgressionManager progressionManager;
-    private LobbyProtectionListener lobbyProtectionListener;
     private HoeUpgradeManager hoeUpgradeManager;
+    private LobbyProtectionListener lobbyProtectionListener;
+
     @Override
     public void onEnable() {
         instance = this;
@@ -37,18 +49,16 @@ public final class Main extends JavaPlugin {
         this.actionBarManager = new ActionBarManager(this);
         this.scoreboardManager = new ScoreboardManager(this);
         this.progressionManager = new ProgressionManager(this);
-        this.lobbyProtectionListener = new LobbyProtectionListener(this);
         this.hoeUpgradeManager = new HoeUpgradeManager(this);
-
+        this.lobbyProtectionListener = new LobbyProtectionListener(this);
 
         getServer().getPluginManager().registerEvents(new FieldListener(this), this);
         getServer().getPluginManager().registerEvents(new DropListener(), this);
         getServer().getPluginManager().registerEvents(new JoinListener(this), this);
         getServer().getPluginManager().registerEvents(new WorkstationListener(this, workstationManager), this);
         getServer().getPluginManager().registerEvents(new HoeProtectionListener(this), this);
-        getServer().getPluginManager().registerEvents(lobbyProtectionListener, this);
         getServer().getPluginManager().registerEvents(new HoeUpgradeListener(this), this);
-
+        getServer().getPluginManager().registerEvents(lobbyProtectionListener, this);
 
         lobbyProtectionListener.applyToAllWorlds();
 
@@ -86,6 +96,10 @@ public final class Main extends JavaPlugin {
             progressionManager.saveAll();
         }
 
+        if (hoeUpgradeManager != null) {
+            hoeUpgradeManager.saveAll();
+        }
+
         if (workstationManager != null) {
             workstationManager.removeAll();
         }
@@ -93,7 +107,6 @@ public final class Main extends JavaPlugin {
         if (actionBarManager != null) {
             actionBarManager.stop();
         }
-        if (hoeUpgradeManager != null) hoeUpgradeManager.saveAll();
 
         getLogger().info("xdGens disabled.");
     }
@@ -110,7 +123,7 @@ public final class Main extends JavaPlugin {
         return currencyManager;
     }
 
-    public de.louis.xdGens.hologram.HologramManager getHologramManager() {
+    public HologramManager getHologramManager() {
         return hologramManager;
     }
 
@@ -129,6 +142,7 @@ public final class Main extends JavaPlugin {
     public ProgressionManager getProgressionManager() {
         return progressionManager;
     }
+
     public HoeUpgradeManager getHoeUpgradeManager() {
         return hoeUpgradeManager;
     }

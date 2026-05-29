@@ -1,12 +1,16 @@
-package de.louis.xdGens.workstation;
+package de.louis.xdGens.manager;
 
-import de.louis.xdGens.hologram.HologramManager;
 import de.louis.xdGens.main.Main;
+import de.louis.xdGens.util.CustomItemUtil;
+import de.louis.xdGens.util.MessageUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,13 +21,13 @@ import java.util.Set;
 public class WorkstationManager {
 
     private final Main plugin;
-    private final HologramManager hologramManager;
+    private final de.louis.xdGens.hologram.HologramManager hologramManager;
     private final Set<String> workstations = new HashSet<>();
 
     private File dataFile;
     private FileConfiguration dataConfig;
 
-    public WorkstationManager(Main plugin, HologramManager hologramManager) {
+    public WorkstationManager(Main plugin, de.louis.xdGens.hologram.HologramManager hologramManager) {
         this.plugin = plugin;
         this.hologramManager = hologramManager;
         setupFile();
@@ -36,33 +40,33 @@ public class WorkstationManager {
             try {
                 dataFile.createNewFile();
             } catch (IOException e) {
-                plugin.getLogger().severe("Konnte workstations.yml nicht erstellen: " + e.getMessage());
+                plugin.getLogger().severe("Could not create workstations.yml: " + e.getMessage());
             }
         }
         dataConfig = YamlConfiguration.loadConfiguration(dataFile);
     }
 
-    /**
-     * Wird beim Start aufgerufen — stellt alle Holograms neu her.
-     */
     private void loadAll() {
         hologramManager.cleanupStaleHolograms();
 
         List<?> list = dataConfig.getList("workstations");
-        if (list == null) return;
+        if (list == null) {
+            return;
+        }
 
         for (Object obj : list) {
-            if (!(obj instanceof String entry)) continue;
+            if (!(obj instanceof String entry)) {
+                continue;
+            }
 
             Location loc = deserialize(entry);
             if (loc == null) {
-                plugin.getLogger().warning("Konnte Workstation nicht laden: " + entry);
+                plugin.getLogger().warning("Could not load workstation: " + entry);
                 continue;
             }
 
             workstations.add(entry);
 
-            // Hologram respawnen (1 Tick verzögert, damit die Welt geladen ist)
             String finalEntry = entry;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 Location loaded = deserialize(finalEntry);
@@ -72,7 +76,7 @@ public class WorkstationManager {
             }, 5L);
         }
 
-        plugin.getLogger().info("Workstations geladen: " + workstations.size());
+        plugin.getLogger().info("Workstations loaded: " + workstations.size());
     }
 
     public void register(Location location) {
@@ -93,6 +97,36 @@ public class WorkstationManager {
         return workstations.contains(serialize(location));
     }
 
+    public void useWorkstation(Player player) {
+        Inventory inv = player.getInventory();
+
+        int wheat = count(inv, "farm_wheat");
+        int wheatBlocksCreated = wheat / 64;
+
+        if (wheatBlocksCreated > 0) {
+            remove(inv, "farm_wheat", wheatBlocksCreated * 64);
+            giveOrDrop(player, CustomItemUtil.createCompressedWheatBlock(plugin, wheatBlocksCreated));
+        }
+
+        int wheatBlocks = count(inv, "compressed_wheat_block");
+        int enchantedCreated = wheatBlocks / 64;
+
+        if (enchantedCreated > 0) {
+            remove(inv, "compressed_wheat_block", enchantedCreated * 64);
+            giveOrDrop(player, CustomItemUtil.createEnchantedWheatBale(plugin, enchantedCreated));
+        }
+
+        if (wheatBlocksCreated == 0 && enchantedCreated == 0) {
+            MessageUtil.send(player, MessageUtil.PREFIX + " <red>Not enough materials.</red>");
+            return;
+        }
+
+        MessageUtil.sendRaw(player,
+                MessageUtil.PREFIX
+                        + " <gradient:#7afcff:#00c2ff>Auto craft complete</gradient>"
+                        + " <gray>(Blocks: " + wheatBlocksCreated + ", Enchanted: " + enchantedCreated + ")</gray>");
+    }
+
     public void removeAll() {
         hologramManager.removeAll();
     }
@@ -102,7 +136,7 @@ public class WorkstationManager {
         try {
             dataConfig.save(dataFile);
         } catch (IOException e) {
-            plugin.getLogger().severe("Konnte workstations.yml nicht speichern: " + e.getMessage());
+            plugin.getLogger().severe("Could not save workstations.yml: " + e.getMessage());
         }
     }
 
@@ -115,18 +149,65 @@ public class WorkstationManager {
 
     private Location deserialize(String key) {
         String[] parts = key.split(":");
-        if (parts.length != 4) return null;
+        if (parts.length != 4) {
+            return null;
+        }
 
         World world = Bukkit.getWorld(parts[0]);
-        if (world == null) return null;
+        if (world == null) {
+            return null;
+        }
 
         try {
-            int x = Integer.parseInt(parts[1]);
-            int y = Integer.parseInt(parts[2]);
-            int z = Integer.parseInt(parts[3]);
-            return new Location(world, x, y, z);
+            return new Location(
+                    world,
+                    Integer.parseInt(parts[1]),
+                    Integer.parseInt(parts[2]),
+                    Integer.parseInt(parts[3])
+            );
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private int count(Inventory inv, String type) {
+        int total = 0;
+
+        for (ItemStack item : inv.getContents()) {
+            if (CustomItemUtil.hasItemType(plugin, item, type)) {
+                total += item.getAmount();
+            }
+        }
+
+        return total;
+    }
+
+    private void remove(Inventory inv, String type, int amount) {
+        int left = amount;
+
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack item = inv.getItem(i);
+            if (!CustomItemUtil.hasItemType(plugin, item, type)) {
+                continue;
+            }
+
+            int take = Math.min(left, item.getAmount());
+            item.setAmount(item.getAmount() - take);
+            left -= take;
+
+            if (item.getAmount() <= 0) {
+                inv.setItem(i, null);
+            }
+
+            if (left <= 0) {
+                return;
+            }
+        }
+    }
+
+    private void giveOrDrop(Player player, ItemStack item) {
+        var leftover = player.getInventory().addItem(item);
+        leftover.values().forEach(left ->
+                player.getWorld().dropItemNaturally(player.getLocation(), left));
     }
 }
