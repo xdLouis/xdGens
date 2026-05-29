@@ -8,7 +8,8 @@ import org.bukkit.block.data.Ageable;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class TntBombSession {
 
@@ -23,14 +24,44 @@ public class TntBombSession {
         MessageUtil.sendRaw(player, MessageUtil.PREFIX
                 + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 TNT Bomber activated!</gradient>");
 
+        // Shared counters across all bombs
+        AtomicInteger totalCrops  = new AtomicInteger(0);
+        AtomicLong    totalTokens = new AtomicLong(0L);
+        AtomicInteger bombsDone   = new AtomicInteger(0);
+
+        // Total ticks until last bomb could possibly land
+        long lastBombLandTick = (long)(BOMB_COUNT - 1) * BOMB_DELAY_TICKS + DROP_HEIGHT * 2 + 5;
+
         for (int i = 0; i < BOMB_COUNT; i++) {
             final int bombIndex = i;
             Bukkit.getScheduler().runTaskLater(plugin, () ->
-                    dropBomb(plugin, player, tntLevel), (long) bombIndex * BOMB_DELAY_TICKS);
+                    dropBomb(plugin, player, tntLevel, totalCrops, totalTokens, bombsDone),
+                    (long) bombIndex * BOMB_DELAY_TICKS);
         }
+
+        // Send summary after all bombs have landed
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            long   tokens       = totalTokens.get();
+            int    crops        = totalCrops.get();
+            double prestigeMult = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
+
+            if (crops == 0) {
+                MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                        + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 TNT Bomber finished</gradient>"
+                        + " <dark_gray>\u2014 no crops hit.</dark_gray>");
+            } else {
+                MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                        + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 TNT Bomber finished!</gradient>"
+                        + " <yellow>+" + tokens + " Tokens</yellow>"
+                        + " <gray>\u00b7</gray> <dark_gray>(" + crops + " crops \u00b7 Lv " + tntLevel
+                        + " \u00b7 Prestige \u00d7" + String.format("%.1f", prestigeMult) + ")</dark_gray>");
+            }
+        }, lastBombLandTick);
     }
 
-    private static void dropBomb(Main plugin, Player player, int tntLevel) {
+    private static void dropBomb(Main plugin, Player player, int tntLevel,
+                                  AtomicInteger totalCrops, AtomicLong totalTokens,
+                                  AtomicInteger bombsDone) {
         World world = player.getWorld();
         Location base = player.getLocation();
 
@@ -53,7 +84,8 @@ public class TntBombSession {
             @Override
             public void run() {
                 if (ticks >= maxTicks) {
-                    explode(plugin, player, landLoc, tntLevel);
+                    explode(plugin, player, landLoc, tntLevel, totalCrops, totalTokens);
+                    bombsDone.incrementAndGet();
                     cancel();
                     return;
                 }
@@ -69,7 +101,8 @@ public class TntBombSession {
         }.runTaskTimer(plugin, 0L, 2L);
     }
 
-    private static void explode(Main plugin, Player player, Location landLoc, int tntLevel) {
+    private static void explode(Main plugin, Player player, Location landLoc, int tntLevel,
+                                 AtomicInteger totalCrops, AtomicLong totalTokens) {
         World world = landLoc.getWorld();
         if (world == null) return;
 
@@ -106,12 +139,8 @@ public class TntBombSession {
         long   tokens       = Math.round(BASE_TOKEN_REWARD * harvested * tntLevel * prestigeMult);
 
         plugin.getCurrencyManager().addTokens(player, (int) tokens);
-
-        MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 Bomb hit!</gradient>"
-                + " <yellow>+" + tokens + " Tokens</yellow>"
-                + " <gray>\u00b7</gray> <dark_gray>(" + harvested + " crops \u00b7 Lv " + tntLevel
-                + " \u00b7 Prestige \u00d7" + String.format("%.1f", prestigeMult) + ")</dark_gray>");
+        totalCrops.addAndGet(harvested);
+        totalTokens.addAndGet(tokens);
     }
 
     private static void scheduleRegrow(Main plugin, Block block) {
