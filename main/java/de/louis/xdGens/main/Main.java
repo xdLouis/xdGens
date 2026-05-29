@@ -22,6 +22,7 @@ public final class Main extends JavaPlugin {
     private BackpackManager backpackManager;
     private VirtualKeyManager virtualKeyManager;
     private PlayerCosmeticManager playerCosmeticManager;
+    private GlowManager glowManager;
     private CrateManager crateManager;
     private LobbyProtectionListener lobbyProtectionListener;
 
@@ -41,6 +42,7 @@ public final class Main extends JavaPlugin {
         this.backpackManager       = new BackpackManager(this);
         this.virtualKeyManager     = new VirtualKeyManager(this);
         this.playerCosmeticManager = new PlayerCosmeticManager(this);
+        this.glowManager           = new GlowManager(this);
         this.crateManager          = new CrateManager(this);
         this.lobbyProtectionListener = new LobbyProtectionListener(this);
 
@@ -101,6 +103,7 @@ public final class Main extends JavaPlugin {
         if (actionBarManager      != null) actionBarManager.stop();
         if (virtualKeyManager     != null) virtualKeyManager.save();
         if (playerCosmeticManager != null) playerCosmeticManager.save();
+        if (glowManager           != null) glowManager.shutdown();
         getLogger().info("xdGens disabled.");
     }
 
@@ -117,4 +120,5 @@ public final class Main extends JavaPlugin {
     public CrateManager getCrateManager()                                  { return crateManager; }
     public VirtualKeyManager getVirtualKeyManager()                        { return virtualKeyManager; }
     public PlayerCosmeticManager getPlayerCosmeticManager()                { return playerCosmeticManager; }
+    public GlowManager getGlowManager()                                    { return glowManager; }
 }
