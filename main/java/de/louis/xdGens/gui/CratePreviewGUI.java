@@ -47,8 +47,8 @@ public class CratePreviewGUI {
     public static final String TITLE_PREFIX = "\uD83D\uDD0D ";
 
     // ── per-player state ─────────────────────────────────────────────────
-    private static final Map<UUID, Category> playerCategory = new HashMap<>();
-    private static final Map<UUID, Integer>  playerPage     = new HashMap<>();
+    public static final Map<UUID, Category> playerCategory = new HashMap<>();
+    public static final Map<UUID, Integer>  playerPage     = new HashMap<>();
 
     public enum Category {
         POUCHES("\uD83D\uDCB0 Pouches",     Material.EMERALD),
@@ -67,14 +67,14 @@ public class CratePreviewGUI {
     private static final int CONTENT_SIZE  = CONTENT_END - CONTENT_START; // 36 slots
 
     // nav bar slots
-    private static final int SLOT_PREV    = 45;
-    private static final int SLOT_CAT_1   = 46; // POUCHES
-    private static final int SLOT_CAT_2   = 47; // TAGS
-    private static final int SLOT_CAT_3   = 48; // NAME_COLORS
-    private static final int SLOT_BACK    = 49;
-    private static final int SLOT_CAT_4   = 50; // CHAT_COLORS
-    private static final int SLOT_CAT_5   = 51; // GLOW
-    private static final int SLOT_NEXT    = 53;
+    public static final int SLOT_PREV    = 45;
+    public static final int SLOT_CAT_1   = 46; // POUCHES
+    public static final int SLOT_CAT_2   = 47; // TAGS
+    public static final int SLOT_CAT_3   = 48; // NAME_COLORS
+    public static final int SLOT_BACK    = 49;
+    public static final int SLOT_CAT_4   = 50; // CHAT_COLORS
+    public static final int SLOT_CAT_5   = 51; // GLOW
+    public static final int SLOT_NEXT    = 53;
 
     private static final int[] CAT_SLOTS = {SLOT_CAT_1, SLOT_CAT_2, SLOT_CAT_3, SLOT_CAT_4, SLOT_CAT_5};
 

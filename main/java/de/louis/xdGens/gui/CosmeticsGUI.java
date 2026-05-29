@@ -7,6 +7,7 @@ import de.louis.xdGens.util.MessageUtil;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -318,7 +319,7 @@ public class CosmeticsGUI {
         for (String l : lore) loreCmp.add(MessageUtil.parse(l));
         meta.lore(loreCmp);
         if (enchanted) {
-            meta.addEnchant(org.bukkit.enchantments.Enchantment.LUCK, 1, true);
+            meta.addEnchant(Enchantment.FORTUNE, 1, true);
             meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
         }
         item.setItemMeta(meta);
