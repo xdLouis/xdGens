@@ -3,7 +3,6 @@ package de.louis.xdGens.listener;
 import de.louis.xdGens.main.Main;
 import de.louis.xdGens.util.MessageUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -21,26 +20,19 @@ public class ChatListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
+        String plain  = PlainTextComponentSerializer.plainText().serialize(event.message());
+        String safe   = plain.replace("<", "\\<"); // prevent MiniMessage injection
 
-        String tag   = plugin.getPlayerCosmeticManager().buildTagFormat(player);
-        String name  = plugin.getPlayerCosmeticManager().buildNameFormat(player);
-        String plain = PlainTextComponentSerializer.plainText().serialize(event.message());
+        String tag     = plugin.getPlayerCosmeticManager().buildTagFormat(player);
+        String name    = plugin.getPlayerCosmeticManager().buildNameFormat(player);
+        String message = plugin.getPlayerCosmeticManager().buildChatFormat(player, safe);
 
-        // Build: [Tag] ColoredName » message
-        String format;
-        if (!tag.isEmpty()) {
-            format = tag + " " + name + " <dark_gray>» <white>" + escape(plain);
-        } else {
-            format = name + " <dark_gray>» <white>" + escape(plain);
-        }
+        // Format: [Tag] ColoredName » <chat-colored message>
+        String format = tag.isEmpty()
+                ? name + " <dark_gray>\u00bb </dark_gray>" + message
+                : tag + " " + name + " <dark_gray>\u00bb </dark_gray>" + message;
 
-        event.renderer((source, sourceDisplayName, message, viewer) ->
-                MessageUtil.parse(format)
-        );
-    }
-
-    /** Escape < so players can't inject MiniMessage tags. */
-    private String escape(String input) {
-        return input.replace("<", "\\<");
+        event.renderer((source, sourceDisplayName, msg, viewer) ->
+                MessageUtil.parse(format));
     }
 }

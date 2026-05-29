@@ -6,15 +6,12 @@ import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.PlayerCosmeticManager;
 import de.louis.xdGens.util.MessageUtil;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.Optional;
 
@@ -30,65 +27,60 @@ public class CosmeticsGUIListener implements Listener {
     public void onClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
-        String title = PlainTextComponentSerializer.plainText()
-                .serialize(event.getView().title());
-
-        boolean isTags   = title.equals(CosmeticsGUI.TITLE_TAGS);
-        boolean isColors = title.equals(CosmeticsGUI.TITLE_COLORS);
-        if (!isTags && !isColors) return;
+        String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
+        CosmeticsGUI.Tab tab = resolveTab(title);
+        if (tab == null) return;
 
         event.setCancelled(true);
-
         int slot = event.getRawSlot();
         if (slot < 0 || slot >= 54) return;
 
         PlayerCosmeticManager mgr = plugin.getPlayerCosmeticManager();
         CosmeticsGUI gui = new CosmeticsGUI(plugin);
 
-        // ── tab switch ────────────────────────────────────────────────
-        if (slot == 0) { gui.openTags(player);   return; }
-        if (slot == 1) { gui.openColors(player); return; }
+        // ── tab switches ──────────────────────────────────────────────
+        if (slot == 0) { gui.openTags(player);       return; }
+        if (slot == 1) { gui.openColors(player);     return; }
+        if (slot == 2) { gui.openChatColors(player); return; }
 
         // ── unequip ───────────────────────────────────────────────────
         if (slot == 8) {
-            if (isTags)   mgr.setActiveTag(player, null);
-            else          mgr.setActiveColor(player, null);
+            switch (tab) {
+                case TAGS        -> mgr.setActiveTag(player, null);
+                case NAME_COLORS -> mgr.setActiveColor(player, null);
+                case CHAT_COLORS -> mgr.setActiveChatColor(player, null);
+            }
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.8f);
-            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Removed active " + (isTags ? "tag" : "color") + ".");
-            if (isTags) gui.openTags(player); else gui.openColors(player);
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Removed active " + tab.name().toLowerCase().replace('_', ' ') + ".");
+            reopenTab(gui, player, tab);
             return;
         }
 
-        // ── content slots ─────────────────────────────────────────────
-        int[] contentSlots = {
-            10, 11, 12, 13, 14, 15, 16,
-            19, 20, 21, 22, 23, 24, 25,
-            28, 29, 30, 31, 32, 33, 34
-        };
-
-        int contentIdx = -1;
-        for (int i = 0; i < contentSlots.length; i++) {
-            if (contentSlots[i] == slot) { contentIdx = i; break; }
-        }
+        // ── cosmetic slots ────────────────────────────────────────────
+        int contentIdx = slotToContentIdx(slot);
         if (contentIdx < 0) return;
 
-        // rebuild sorted list (same order as GUI)
+        // rebuild same sorted list as GUI
+        CrateReward.Type type = switch (tab) {
+            case TAGS        -> CrateReward.Type.TAG;
+            case NAME_COLORS -> CrateReward.Type.NAME_COLOR;
+            case CHAT_COLORS -> CrateReward.Type.CHAT_COLOR;
+        };
         java.util.List<CrateReward> all = new java.util.ArrayList<>();
-        for (CrateReward r : CrateReward.values()) {
-            if (isTags ? r.isTag() : r.isColor()) all.add(r);
-        }
-        java.util.Set<CrateReward> unlocked = isTags
-                ? mgr.getUnlockedTags(player)
-                : mgr.getUnlockedColors(player);
+        for (CrateReward r : CrateReward.values()) if (r.getType() == type) all.add(r);
+        java.util.Set<CrateReward> collection = switch (tab) {
+            case TAGS        -> mgr.getUnlockedTags(player);
+            case NAME_COLORS -> mgr.getUnlockedColors(player);
+            case CHAT_COLORS -> mgr.getUnlockedChatColors(player);
+        };
         all.sort((a, b) -> {
-            boolean ua = unlocked.contains(a), ub = unlocked.contains(b);
+            boolean ua = collection.contains(a), ub = collection.contains(b);
             if (ua != ub) return ua ? -1 : 1;
             return Integer.compare(b.getTier(), a.getTier());
         });
-
         if (contentIdx >= all.size()) return;
-        CrateReward reward = all.get(contentIdx);
 
+        CrateReward reward = all.get(contentIdx);
         if (!mgr.hasCosmetic(player, reward)) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <red>You haven't unlocked <white>"
@@ -96,26 +88,58 @@ public class CosmeticsGUIListener implements Listener {
             return;
         }
 
-        Optional<CrateReward> active = isTags
-                ? mgr.getActiveTag(player)
-                : mgr.getActiveColor(player);
+        Optional<CrateReward> active = switch (tab) {
+            case TAGS        -> mgr.getActiveTag(player);
+            case NAME_COLORS -> mgr.getActiveColor(player);
+            case CHAT_COLORS -> mgr.getActiveChatColor(player);
+        };
 
         if (active.isPresent() && active.get() == reward) {
             // toggle off
-            if (isTags) mgr.setActiveTag(player, null);
-            else        mgr.setActiveColor(player, null);
+            switch (tab) {
+                case TAGS        -> mgr.setActiveTag(player, null);
+                case NAME_COLORS -> mgr.setActiveColor(player, null);
+                case CHAT_COLORS -> mgr.setActiveChatColor(player, null);
+            }
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.9f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Unequipped <white>" + reward.getDisplayName() + "</white>.");
         } else {
-            if (isTags) mgr.setActiveTag(player, reward);
-            else        mgr.setActiveColor(player, reward);
+            switch (tab) {
+                case TAGS        -> mgr.setActiveTag(player, reward);
+                case NAME_COLORS -> mgr.setActiveColor(player, reward);
+                case CHAT_COLORS -> mgr.setActiveChatColor(player, reward);
+            }
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.4f);
             String preview = reward.isColor()
                     ? reward.getCosmeticFormat().replace("{name}", player.getName())
+                    : reward.isChatColor()
+                    ? reward.getCosmeticFormat().replace("{msg}", "Hello!")
                     : reward.getCosmeticFormat();
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Equipped: " + preview);
         }
+        reopenTab(gui, player, tab);
+    }
 
-        if (isTags) gui.openTags(player); else gui.openColors(player);
+    // ── helpers ───────────────────────────────────────────────────────
+
+    private CosmeticsGUI.Tab resolveTab(String title) {
+        if (title.equals(CosmeticsGUI.TITLE_TAGS))        return CosmeticsGUI.Tab.TAGS;
+        if (title.equals(CosmeticsGUI.TITLE_NAME_COLORS)) return CosmeticsGUI.Tab.NAME_COLORS;
+        if (title.equals(CosmeticsGUI.TITLE_CHAT_COLORS)) return CosmeticsGUI.Tab.CHAT_COLORS;
+        return null;
+    }
+
+    private void reopenTab(CosmeticsGUI gui, Player p, CosmeticsGUI.Tab tab) {
+        switch (tab) {
+            case TAGS        -> gui.openTags(p);
+            case NAME_COLORS -> gui.openColors(p);
+            case CHAT_COLORS -> gui.openChatColors(p);
+        }
+    }
+
+    private int slotToContentIdx(int slot) {
+        int[] cs = CosmeticsGUI.CONTENT_SLOTS;
+        for (int i = 0; i < cs.length; i++) if (cs[i] == slot) return i;
+        return -1;
     }
 }
