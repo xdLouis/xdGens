@@ -26,6 +26,8 @@ commands:
   cosmetics:
     description: Open the cosmetics menu (tags & colors)
     usage: /cosmetics [tags|colors]
+  trash:
+    description: Open a trash bin to delete items
   xdadmin:
     description: Admin command for xdGens
     usage: /xdadmin
