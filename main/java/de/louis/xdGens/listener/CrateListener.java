@@ -36,20 +36,45 @@ public class CrateListener implements Listener {
         this.plugin = plugin;
     }
 
-    // ── inventory click ───────────────────────────────────────────────────
-
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
-        // ── Crates main menu ─────────────────────────────────────────
+        // ── Crates Hauptmenü ─────────────────────────────────────────────
         if (title.equals(CRATES_MENU_TITLE) || title.endsWith("Crates")) {
             event.setCancelled(true);
             int slot = event.getSlot();
 
+            // ─ Kompass ─────────────────────────────────────────────────
+            if (slot == CratesGUI.SLOT_COMPASS) {
+                int cur = CratesGUI.focusIndex.getOrDefault(player.getUniqueId(), 0);
+                int total = CrateType.values().length;
+
+                if (event.getClick() == ClickType.SHIFT_LEFT
+                        || event.getClick() == ClickType.SHIFT_RIGHT
+                        || event.getClick() == ClickType.MIDDLE) {
+                    // Preview der fokussierten Crate öffnen
+                    CrateType focused = CrateType.values()[Math.floorMod(cur, total)];
+                    CratePreviewGUI.clearState(player.getUniqueId());
+                    new CratePreviewGUI(plugin, focused).open(player);
+                } else if (event.getClick() == ClickType.RIGHT) {
+                    // vorherige Crate
+                    new CratesGUI(plugin).open(player, Math.floorMod(cur - 1, total));
+                } else {
+                    // nächste Crate (Links / alles andere)
+                    new CratesGUI(plugin).open(player, Math.floorMod(cur + 1, total));
+                }
+                return;
+            }
+
+            // ─ Crate-Item ───────────────────────────────────────────────
             CrateType crateType = resolveBySlot(slot, CratesGUI.CRATE_SLOTS);
             if (crateType == null) return;
+
+            // Beim Klick auf Crate auch den Fokus setzen
+            int crateIdx = crateIndexOf(crateType);
+            CratesGUI.focusIndex.put(player.getUniqueId(), crateIdx);
 
             if (event.getClick() == ClickType.RIGHT) {
                 CratePreviewGUI.clearState(player.getUniqueId());
@@ -65,7 +90,6 @@ public class CrateListener implements Listener {
         }
 
         // ── Preview GUI ──────────────────────────────────────────────
-        // Titles look like "🔍 Common Crate"
         if (title.contains(" Crate") && !title.endsWith("Crates")) {
             event.setCancelled(true);
             CrateType previewType = CratePreviewGUI.resolveFromTitle(title);
@@ -81,12 +105,12 @@ public class CrateListener implements Listener {
                 }
                 case CratePreviewGUI.SLOT_PREV -> gui.open(player, curPage - 1);
                 case CratePreviewGUI.SLOT_NEXT -> gui.open(player, curPage + 1);
-                default -> { /* content area — view only */ }
+                default -> { /* view only */ }
             }
         }
     }
 
-    // ── pouch right-click → instant redemption ─────────────────────────
+    // ── Pouch Rechtsklick ───────────────────────────────────────────────
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPouchUse(PlayerInteractEvent event) {
@@ -110,19 +134,18 @@ public class CrateListener implements Listener {
         else item.setAmount(item.getAmount() - 1);
 
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.1f);
-        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Pouch opened:</green> <white>+"
+        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Pouch geöffnet:</green> <white>+"
                 + NumberUtil.format(value) + " " + readable(type) + "</white>");
     }
 
-    // ── open one ───────────────────────────────────────────────────────────
+    // ── Open One ───────────────────────────────────────────────────────
 
     private void handleOpenOne(Player player, CrateType type) {
         if (!plugin.getVirtualKeyManager().consumeKey(player, type)) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>You don't have a " + type.getDisplayName() + " key.</red>");
+                    + " <red>Du hast keinen " + type.getDisplayName() + " Key.</red>");
             return;
         }
-
         CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
         redeemPouches(player, result);
         giveVoucher(player, result);
@@ -131,30 +154,24 @@ public class CrateListener implements Listener {
         new CratesGUI(plugin).open(player);
     }
 
-    // ── open all ───────────────────────────────────────────────────────────
+    // ── Open All ───────────────────────────────────────────────────────
 
     private void handleOpenAll(Player player, CrateType type) {
         int total = plugin.getVirtualKeyManager().getKeys(player, type);
         if (total <= 0) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>You don't have any " + type.getDisplayName() + " keys.</red>");
+                    + " <red>Du hast keine " + type.getDisplayName() + " Keys.</red>");
             return;
         }
 
-        long totalMoney  = 0;
-        long totalXp     = 0;
-        long totalTokens = 0;
+        long totalMoney  = 0, totalXp = 0, totalTokens = 0;
         int  vouchers    = 0;
         Map<PouchTier, Integer> tierCounts = new EnumMap<>(PouchTier.class);
 
         for (int i = 0; i < total; i++) {
             if (!plugin.getVirtualKeyManager().consumeKey(player, type)) break;
-
             CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
-
-            PouchTier tier = result.pouchTier();
-            tierCounts.merge(tier, 1, Integer::sum);
-
+            tierCounts.merge(result.pouchTier(), 1, Integer::sum);
             for (ItemStack pouch : result.pouches()) {
                 PouchType pt  = PouchItem.getType(plugin, pouch);
                 long      val = PouchItem.getValue(plugin, pouch);
@@ -165,54 +182,39 @@ public class CrateListener implements Listener {
                     case XP     -> { totalXp     += val; plugin.getProgressionManager().addXp(player, val); }
                 }
             }
-
-            if (result.hasVoucher()) {
-                giveVoucher(player, result);
-                vouchers++;
-            }
+            if (result.hasVoucher()) { giveVoucher(player, result); vouchers++; }
         }
 
         playCrateSound(player);
-
         StringBuilder sb = new StringBuilder();
         sb.append(MessageUtil.PREFIX).append(" ")
           .append(type.getGradient()).append("<bold>").append(type.getDisplayName()).append(" Crate</bold></gradient>")
-          .append(" <gray>\u00d7 ").append(total).append(" opened</gray>");
-
-        sb.append("\n<dark_gray>\u250c\u2500 Pouches redeemed");
+          .append(" <gray>\u00d7 ").append(total).append(" geöffnet</gray>");
+        sb.append("\n<dark_gray>\u250c\u2500 Pouches eingelöst");
         if (totalMoney  > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalMoney)).append("</white> <gray>Money</gray>");
         if (totalXp     > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalXp)).append("</white> <gray>XP</gray>");
         if (totalTokens > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalTokens)).append("</white> <gray>Tokens</gray>");
-
         if (!tierCounts.isEmpty()) {
             sb.append("\n<dark_gray>\u2502</dark_gray> <gray>Tiers: ");
-            tierCounts.forEach((tier, count) ->
-                sb.append(tier.getDisplayName()).append(" <dark_gray>x").append(count).append("</dark_gray>  ")
-            );
+            tierCounts.forEach((tier, cnt) -> sb.append(tier.getDisplayName()).append(" <dark_gray>x").append(cnt).append("</dark_gray>  "));
         }
-
-        if (vouchers > 0) {
-            sb.append("\n<dark_gray>\u251c\u2500 Cosmetic vouchers: <white>").append(vouchers).append("</white> <gray>(in inventory)</gray>");
-        }
+        if (vouchers > 0) sb.append("\n<dark_gray>\u251c\u2500 Cosmetic Vouchers: <white>").append(vouchers).append("</white> <gray>(im Inventar)</gray>");
         sb.append("\n<dark_gray>\u2514\u2500</dark_gray>");
-
         MessageUtil.sendRaw(player, sb.toString());
         new CratesGUI(plugin).open(player);
     }
 
-    // ── helpers ─────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────
 
     private void sendOpenMessage(Player player, CrateType type, CrateManager.CrateOpenResult result) {
-        PouchTier tier = result.pouchTier();
         StringBuilder sb = new StringBuilder();
         sb.append(MessageUtil.PREFIX).append(" ")
           .append(type.getGradient()).append(type.getDisplayName()).append(" Crate</gradient>")
           .append(" <gray>\u2502</gray> ")
-          .append(tier.getDisplayName()).append(" <gray>pouches</gray>");
-
+          .append(result.pouchTier().getDisplayName()).append(" <gray>Pouches</gray>");
         for (ItemStack pouch : result.pouches()) {
-            long val = PouchItem.getValue(plugin, pouch);
-            PouchType pt = PouchItem.getType(plugin, pouch);
+            PouchType pt  = PouchItem.getType(plugin, pouch);
+            long      val = PouchItem.getValue(plugin, pouch);
             if (pt == null || val <= 0) continue;
             sb.append("\n  <dark_gray>\u2514</dark_gray> <white>+").append(NumberUtil.format(val))
               .append("</white> <gray>").append(readable(pt)).append("</gray>");
@@ -220,7 +222,8 @@ public class CrateListener implements Listener {
         if (result.hasVoucher()) {
             sb.append("\n  <dark_gray>\u2514</dark_gray> ")
               .append(result.rolledCosmetic().tierLabel())
-              .append(" <white>").append(result.rolledCosmetic().getDisplayName()).append("</white> <gray>cosmetic voucher!</gray>");
+              .append(" <white>").append(result.rolledCosmetic().getDisplayName())
+              .append("</white> <gray>Cosmetic Voucher!</gray>");
         }
         MessageUtil.sendRaw(player, sb.toString());
     }
@@ -254,6 +257,12 @@ public class CrateListener implements Listener {
             if (slots[i] == slot) return types[i];
         }
         return null;
+    }
+
+    private int crateIndexOf(CrateType type) {
+        CrateType[] types = CrateType.values();
+        for (int i = 0; i < types.length; i++) if (types[i] == type) return i;
+        return 0;
     }
 
     private String readable(PouchType type) {
