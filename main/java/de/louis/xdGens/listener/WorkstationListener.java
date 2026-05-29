@@ -4,6 +4,9 @@ import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.WorkstationManager;
 import de.louis.xdGens.util.CustomItemUtil;
 import de.louis.xdGens.util.MessageUtil;
+import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -14,6 +17,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 
 public class WorkstationListener implements Listener {
 
@@ -56,6 +60,17 @@ public class WorkstationListener implements Listener {
                 block.getLocation().clone().add(0.5, 0.5, 0.5),
                 CustomItemUtil.createWorkstationItem(plugin)
         );
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        Chunk chunk = event.getChunk();
+        for (Location loc : workstationManager.getWorkstationLocations()) {
+            if (!loc.getWorld().equals(chunk.getWorld())) continue;
+            if ((loc.getBlockX() >> 4) != chunk.getX()) continue;
+            if ((loc.getBlockZ() >> 4) != chunk.getZ()) continue;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getHologramManager().spawn(loc), 2L);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

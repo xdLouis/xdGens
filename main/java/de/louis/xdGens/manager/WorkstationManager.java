@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -55,7 +56,7 @@ public class WorkstationManager {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 Location loaded = deserialize(entry);
                 if (loaded != null) hologramManager.spawn(loaded);
-            }, 5L);
+            }, 40L);
         }
     }
 
@@ -73,6 +74,15 @@ public class WorkstationManager {
 
     public boolean isWorkstation(Location location) {
         return workstations.contains(serialize(location));
+    }
+
+    public List<Location> getWorkstationLocations() {
+        List<Location> locations = new ArrayList<>();
+        for (String entry : workstations) {
+            Location loc = deserialize(entry);
+            if (loc != null) locations.add(loc);
+        }
+        return locations;
     }
 
     public void useWorkstation(Player player) {
