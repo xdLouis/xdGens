@@ -30,7 +30,7 @@ public class CrateListener implements Listener {
 
     private final Main plugin;
 
-    private static final String CRATES_MENU_TITLE = "\uD83C\uDF81 Crates";
+    private static final String CRATES_TITLE = "\uD83C\uDF81 Crates";
 
     public CrateListener(Main plugin) {
         this.plugin = plugin;
@@ -42,55 +42,32 @@ public class CrateListener implements Listener {
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
         // ── Crates Hauptmenü ─────────────────────────────────────────────
-        if (title.equals(CRATES_MENU_TITLE) || title.endsWith("Crates")) {
+        if (title.equals(CRATES_TITLE)) {
             event.setCancelled(true);
-            int slot = event.getSlot();
 
-            // ─ Kompass ─────────────────────────────────────────────────
-            if (slot == CratesGUI.SLOT_COMPASS) {
-                int cur = CratesGUI.focusIndex.getOrDefault(player.getUniqueId(), 0);
-                int total = CrateType.values().length;
+            CrateType crate = resolveBySlot(event.getSlot(), CratesGUI.CRATE_SLOTS);
+            if (crate == null) return;
 
-                if (event.getClick() == ClickType.SHIFT_LEFT
-                        || event.getClick() == ClickType.SHIFT_RIGHT
-                        || event.getClick() == ClickType.MIDDLE) {
-                    // Preview der fokussierten Crate öffnen
-                    CrateType focused = CrateType.values()[Math.floorMod(cur, total)];
-                    CratePreviewGUI.clearState(player.getUniqueId());
-                    new CratePreviewGUI(plugin, focused).open(player);
-                } else if (event.getClick() == ClickType.RIGHT) {
-                    // vorherige Crate
-                    new CratesGUI(plugin).open(player, Math.floorMod(cur - 1, total));
-                } else {
-                    // nächste Crate (Links / alles andere)
-                    new CratesGUI(plugin).open(player, Math.floorMod(cur + 1, total));
-                }
-                return;
-            }
+            ClickType click = event.getClick();
 
-            // ─ Crate-Item ───────────────────────────────────────────────
-            CrateType crateType = resolveBySlot(slot, CratesGUI.CRATE_SLOTS);
-            if (crateType == null) return;
-
-            // Beim Klick auf Crate auch den Fokus setzen
-            int crateIdx = crateIndexOf(crateType);
-            CratesGUI.focusIndex.put(player.getUniqueId(), crateIdx);
-
-            if (event.getClick() == ClickType.RIGHT) {
+            if (click == ClickType.RIGHT) {
+                // Rewards & Odds Preview
                 CratePreviewGUI.clearState(player.getUniqueId());
-                new CratePreviewGUI(plugin, crateType).open(player);
-            } else if (event.getClick() == ClickType.SHIFT_LEFT
-                    || event.getClick() == ClickType.SHIFT_RIGHT
-                    || event.getClick() == ClickType.MIDDLE) {
-                handleOpenAll(player, crateType);
-            } else {
-                handleOpenOne(player, crateType);
+                new CratePreviewGUI(plugin, crate).open(player);
+
+            } else if (click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT) {
+                // Alle Keys öffnen
+                handleOpenAll(player, crate);
+
+            } else if (click == ClickType.LEFT || click == ClickType.MIDDLE) {
+                // 1 Key öffnen
+                handleOpenOne(player, crate);
             }
             return;
         }
 
         // ── Preview GUI ──────────────────────────────────────────────
-        if (title.contains(" Crate") && !title.endsWith("Crates")) {
+        if (title.contains(" Crate") && !title.contains("Crates")) {
             event.setCancelled(true);
             CrateType previewType = CratePreviewGUI.resolveFromTitle(title);
             if (previewType == null) return;
@@ -164,8 +141,8 @@ public class CrateListener implements Listener {
             return;
         }
 
-        long totalMoney  = 0, totalXp = 0, totalTokens = 0;
-        int  vouchers    = 0;
+        long totalMoney = 0, totalXp = 0, totalTokens = 0;
+        int  vouchers   = 0;
         Map<PouchTier, Integer> tierCounts = new EnumMap<>(PouchTier.class);
 
         for (int i = 0; i < total; i++) {
@@ -257,12 +234,6 @@ public class CrateListener implements Listener {
             if (slots[i] == slot) return types[i];
         }
         return null;
-    }
-
-    private int crateIndexOf(CrateType type) {
-        CrateType[] types = CrateType.values();
-        for (int i = 0; i < types.length; i++) if (types[i] == type) return i;
-        return 0;
     }
 
     private String readable(PouchType type) {

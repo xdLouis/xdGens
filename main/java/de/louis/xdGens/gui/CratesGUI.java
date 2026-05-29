@@ -13,34 +13,26 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * /crates  —  4 Reihen (36 Slots)
+ * /crates  —  3 Reihen (27 Slots)
  *
  *  Slot:  0  1  2  3  4  5  6  7  8
  *  R0:   [b][b][b][b][b][b][b][b][b]
  *  R1:   [b][C][U][R][E][L][b][i][b]    C–L = Crates, i = Key-Finder-Info
- *  R2:   [b][K][b][b][b][b][b][b][b]    K = Kompass (Slot 19, ein nach links)
- *  R3:   [b][b][b][b][b][b][b][b][b]
- *
- *  Kompass-Klick:
- *    LEFT / RIGHT   → Crate cyclen
- *    SHIFT / MIDDLE → Preview öffnen
+ *  R2:   [b][b][b][b][b][b][b][b][b]
  *
  *  Crate-Item-Klick:
- *    LEFT           → 1 Key öffnen
- *    SHIFT+LEFT     → alle Keys öffnen
- *    RIGHT          → Preview
+ *    LEFT        → 1 Key öffnen
+ *    SHIFT+LEFT  → alle Keys öffnen
+ *    RIGHT       → Rewards & Odds
  */
 public class CratesGUI {
 
-    public static final int[] CRATE_SLOTS  = {10, 11, 12, 13, 14};
-    public static final int   SLOT_INFO    = 16;
-    public static final int   SLOT_COMPASS = 19;   // Reihe 2, Spalte 1 (ein nach links)
-
-    // Aktiv fokussierte Crate pro Spieler
-    public static final Map<UUID, Integer> focusIndex = new HashMap<>();
+    public static final int[] CRATE_SLOTS = {10, 11, 12, 13, 14};
+    public static final int   SLOT_INFO   = 16;
 
     private final Main plugin;
 
@@ -49,35 +41,26 @@ public class CratesGUI {
     }
 
     public void open(Player player) {
-        open(player, focusIndex.getOrDefault(player.getUniqueId(), 0));
-    }
-
-    public void open(Player player, int idx) {
-        CrateType[] types = CrateType.values();
-        idx = Math.floorMod(idx, types.length);
-        focusIndex.put(player.getUniqueId(), idx);
-
         Inventory inv = Bukkit.createInventory(
-                null, 36,
+                null, 27,
                 MessageUtil.parse("\uD83C\uDF81 Crates")
         );
 
         ItemStack filler = pane(Material.BLACK_STAINED_GLASS_PANE);
-        for (int i = 0; i < 36; i++) inv.setItem(i, filler.clone());
+        for (int i = 0; i < 27; i++) inv.setItem(i, filler.clone());
 
+        CrateType[] types = CrateType.values();
         for (int i = 0; i < types.length && i < CRATE_SLOTS.length; i++) {
-            inv.setItem(CRATE_SLOTS[i], buildCrateItem(player, types[i], i == idx));
+            inv.setItem(CRATE_SLOTS[i], buildCrateItem(player, types[i]));
         }
 
-        inv.setItem(SLOT_INFO,    buildInfoItem(player));
-        inv.setItem(SLOT_COMPASS, buildCompass(types[idx], idx, types.length));
-
+        inv.setItem(SLOT_INFO, buildInfoItem(player));
         player.openInventory(inv);
     }
 
-    // ── Crate-Item ────────────────────────────────────────────────
+    // ── Crate-Item ─────────────────────────────────────────────────
 
-    private ItemStack buildCrateItem(Player player, CrateType type, boolean focused) {
+    private ItemStack buildCrateItem(Player player, CrateType type) {
         int keys = plugin.getVirtualKeyManager().getKeys(player, type);
 
         ItemStack item = new ItemStack(type.getIcon());
@@ -89,11 +72,6 @@ public class CratesGUI {
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
 
-        if (focused) {
-            lore.add(MessageUtil.parse("<yellow>\u2605 Fokussiert</yellow>"));
-            lore.add(Component.empty());
-        }
-
         if (keys > 0) {
             lore.add(MessageUtil.parse("<gray>Keys: <white>" + keys + "</white>"));
         } else {
@@ -101,50 +79,19 @@ public class CratesGUI {
         }
 
         lore.add(Component.empty());
+
         if (keys > 0) {
-            lore.add(MessageUtil.parse("<gray>\u25b6 <white>Linksklick</white>       1 Key öffnen"));
-            lore.add(MessageUtil.parse("<gray>\u25b6 <white>Shift+Klick</white>    alle " + keys + " öffnen"));
+            lore.add(MessageUtil.parse("<gray>\u25b6 <white>Linksklick</white>         1 Key öffnen"));
+            lore.add(MessageUtil.parse("<gray>\u25b6 <white>Shift+Linksklick</white>  alle " + keys + " öffnen"));
         }
-        lore.add(MessageUtil.parse("<gray>\u25b6 <white>Rechtsklick</white>    Rewards ansehen"));
+        lore.add(MessageUtil.parse("<gray>\u25b6 <white>Rechtsklick</white>        Rewards & Odds"));
 
         meta.lore(lore);
-        if (keys > 0 || focused) {
+        if (keys > 0) {
             meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    // ── Kompass ────────────────────────────────────────────────────
-
-    private ItemStack buildCompass(CrateType focused, int idx, int total) {
-        ItemStack item = new ItemStack(Material.COMPASS);
-        ItemMeta  meta = item.getItemMeta();
-        meta.displayName(MessageUtil.parse(
-                focused.getGradient() + "<bold>" + focused.getDisplayName() + " Crate</bold></gradient>"
-        ));
-
-        CrateType[] types = CrateType.values();
-        StringBuilder dots = new StringBuilder();
-        for (int i = 0; i < total; i++) {
-            if (i > 0) dots.append("  ");
-            if (i == idx) dots.append("<white><bold>[").append(types[i].getDisplayName()).append("]</bold></white>");
-            else          dots.append("<dark_gray>").append(types[i].getDisplayName()).append("</dark_gray>");
-        }
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(Component.empty());
-        lore.add(MessageUtil.parse(dots.toString()));
-        lore.add(Component.empty());
-        lore.add(MessageUtil.parse("<gray>\u25b6 <white>Linksklick</white>    nächste Crate"));
-        lore.add(MessageUtil.parse("<gray>\u25c0 <white>Rechtsklick</white>   vorherige Crate"));
-        lore.add(MessageUtil.parse("<gray>\u2605 <white>Shift+Klick</white>   Rewards öffnen"));
-
-        meta.lore(lore);
-        meta.addEnchant(Enchantment.UNBREAKING, 1, true);
-        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
