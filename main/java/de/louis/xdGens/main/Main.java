@@ -24,6 +24,7 @@ public final class Main extends JavaPlugin {
     private PlayerCosmeticManager playerCosmeticManager;
     private GlowManager glowManager;
     private CrateManager crateManager;
+    private SkillManager skillManager;
     private LobbyProtectionListener lobbyProtectionListener;
 
     @Override
@@ -44,6 +45,7 @@ public final class Main extends JavaPlugin {
         this.playerCosmeticManager = new PlayerCosmeticManager(this);
         this.glowManager           = new GlowManager(this);
         this.crateManager          = new CrateManager(this);
+        this.skillManager          = new SkillManager(this);
         this.lobbyProtectionListener = new LobbyProtectionListener(this);
 
         getServer().getPluginManager().registerEvents(new FieldListener(this), this);
@@ -104,6 +106,7 @@ public final class Main extends JavaPlugin {
         if (virtualKeyManager     != null) virtualKeyManager.save();
         if (playerCosmeticManager != null) playerCosmeticManager.save();
         if (glowManager           != null) glowManager.shutdown();
+        if (skillManager          != null) skillManager.saveAll();
         getLogger().info("xdGens disabled.");
     }
 
@@ -121,4 +124,5 @@ public final class Main extends JavaPlugin {
     public VirtualKeyManager getVirtualKeyManager()                        { return virtualKeyManager; }
     public PlayerCosmeticManager getPlayerCosmeticManager()                { return playerCosmeticManager; }
     public GlowManager getGlowManager()                                    { return glowManager; }
+    public SkillManager getSkillManager()                                  { return skillManager; }
 }

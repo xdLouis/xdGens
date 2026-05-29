@@ -3,6 +3,9 @@ package de.louis.xdGens.listener;
 import de.louis.xdGens.field.FieldManager;
 import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.CurrencyManager;
+import de.louis.xdGens.skill.PandaRollSession;
+import de.louis.xdGens.skill.PandaRollerSkill;
+import de.louis.xdGens.skill.SkillRegistry;
 import de.louis.xdGens.util.CustomItemUtil;
 import de.louis.xdGens.util.HoeUtil;
 import de.louis.xdGens.util.MessageUtil;
@@ -63,7 +66,6 @@ public class FieldListener implements Listener {
         double xpMax    = plugin.getConfig().getDouble("rewards.wheat.xp.max", 16.0);
 
         int    baseTokens  = Rng.between(tokenMin, tokenMax);
-        // Apply hoe upgrade multiplier, then prestige token bonus on top
         double hoeMultiplier      = plugin.getHoeUpgradeManager().getTokenMultiplier(player);
         double prestigeMultiplier = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
         long   finalTokens = Math.round(baseTokens * hoeMultiplier * prestigeMultiplier);
@@ -83,7 +85,28 @@ public class FieldListener implements Listener {
         plugin.getProgressionManager().addXp(player, finalXp);
         plugin.getActionBarManager().addHarvest(player, Math.toIntExact(finalTokens), finalXp);
 
-        // ── Key Finder: grant virtual key (no physical item) ─────────────────────
+        // ── Panda Roller skill ───────────────────────────────────────────
+        // Feed harvest into active session (if one is running)
+        PandaRollSession.addHarvest(player.getUniqueId(), finalTokens, finalXp);
+
+        // Try to trigger a new session
+        if (!PandaRollSession.isActive(player.getUniqueId())) {
+            PandaRollerSkill pandaSkill = (PandaRollerSkill) SkillRegistry.get("panda_roller");
+            int pandaLevel = plugin.getSkillManager().getLevel(player, "panda_roller");
+            if (pandaLevel > 0 && pandaSkill != null) {
+                double chance = pandaSkill.spawnChance(pandaLevel);
+                if (Math.random() < chance) {
+                    new PandaRollSession(
+                            plugin, player,
+                            pandaSkill.rewardBonus(pandaLevel),
+                            pandaSkill.rollDurationTicks()
+                    ).start();
+                }
+            }
+        }
+        // ──────────────────────────────────────────────────────────────
+
+        // ── Key Finder ───────────────────────────────────────────────
         if (plugin.getHoeUpgradeManager().getKeyFinderLevel(player) > 0) {
             boolean found = plugin.getCrateManager().tryGiveRandomKey(player);
             if (found) {
