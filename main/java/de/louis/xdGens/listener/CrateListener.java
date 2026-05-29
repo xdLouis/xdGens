@@ -30,9 +30,6 @@ public class CrateListener implements Listener {
 
     private final Main plugin;
 
-    // Exact plain-text titles produced by MessageUtil.parse(...)
-    // CratesGUI title:       "🎁 Crates"
-    // CratePreviewGUI title: "🔍 <CrateDisplay> Crate"
     private static final String CRATES_MENU_TITLE = "\uD83C\uDF81 Crates";
 
     public CrateListener(Main plugin) {
@@ -47,19 +44,10 @@ public class CrateListener implements Listener {
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
         // ── Crates main menu ─────────────────────────────────────────
-        // Use exact match: plain title is "🎁 Crates" (no crate name appended)
         if (title.equals(CRATES_MENU_TITLE) || title.endsWith("Crates")) {
             event.setCancelled(true);
             int slot = event.getSlot();
 
-            // open-all row click
-            CrateType openAllType = resolveBySlot(slot, CratesGUI.OPEN_ALL_SLOTS);
-            if (openAllType != null) {
-                handleOpenAll(player, openAllType);
-                return;
-            }
-
-            // crate row click
             CrateType crateType = resolveBySlot(slot, CratesGUI.CRATE_SLOTS);
             if (crateType == null) return;
 
@@ -77,29 +65,22 @@ public class CrateListener implements Listener {
         }
 
         // ── Preview GUI ──────────────────────────────────────────────
-        // Preview titles end with "<CrateDisplay> Crate", e.g. "🔍 Common Crate"
-        // They always contain " Crate" but NOT the plural "Crates"
+        // Titles look like "🔍 Common Crate"
         if (title.contains(" Crate") && !title.endsWith("Crates")) {
             event.setCancelled(true);
             CrateType previewType = CratePreviewGUI.resolveFromTitle(title);
             if (previewType == null) return;
 
-            CratePreviewGUI gui = new CratePreviewGUI(plugin, previewType);
-            CratePreviewGUI.Category curCat  = CratePreviewGUI.playerCategory.getOrDefault(player.getUniqueId(), CratePreviewGUI.Category.POUCHES);
-            int                      curPage = CratePreviewGUI.playerPage.getOrDefault(player.getUniqueId(), 0);
+            CratePreviewGUI gui     = new CratePreviewGUI(plugin, previewType);
+            int             curPage = CratePreviewGUI.playerPage.getOrDefault(player.getUniqueId(), 0);
 
             switch (event.getSlot()) {
                 case CratePreviewGUI.SLOT_BACK -> {
                     CratePreviewGUI.clearState(player.getUniqueId());
                     new CratesGUI(plugin).open(player);
                 }
-                case CratePreviewGUI.SLOT_PREV -> gui.open(player, curCat, curPage - 1);
-                case CratePreviewGUI.SLOT_NEXT -> gui.open(player, curCat, curPage + 1);
-                case CratePreviewGUI.SLOT_CAT_1 -> gui.open(player, CratePreviewGUI.Category.POUCHES,     0);
-                case CratePreviewGUI.SLOT_CAT_2 -> gui.open(player, CratePreviewGUI.Category.TAGS,        0);
-                case CratePreviewGUI.SLOT_CAT_3 -> gui.open(player, CratePreviewGUI.Category.NAME_COLORS, 0);
-                case CratePreviewGUI.SLOT_CAT_4 -> gui.open(player, CratePreviewGUI.Category.CHAT_COLORS, 0);
-                case CratePreviewGUI.SLOT_CAT_5 -> gui.open(player, CratePreviewGUI.Category.GLOW,        0);
+                case CratePreviewGUI.SLOT_PREV -> gui.open(player, curPage - 1);
+                case CratePreviewGUI.SLOT_NEXT -> gui.open(player, curPage + 1);
                 default -> { /* content area — view only */ }
             }
         }
