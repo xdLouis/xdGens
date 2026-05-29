@@ -99,9 +99,19 @@ public class FieldListener implements Listener {
         // ──────────────────────────────────────────────────────────────────
 
         // ── TNT Bomber ────────────────────────────────────────────────────
-        if (hoe.getTntLevel(player) >= 1) {
-            if (Math.random() < hoe.getTntSpawnChance(player)) {
-                TntBombSession.trigger(plugin, player, hoe.getTntLevel(player));
+        int tntLvl = hoe.getTntLevel(player);
+        plugin.getLogger().info("[TNT-DEBUG] " + player.getName()
+                + " tntLevel=" + tntLvl
+                + " spawnChance=" + (tntLvl >= 1
+                    ? String.format("%.5f", hoe.getTntSpawnChance(player)) : "n/a"));
+        if (tntLvl >= 1) {
+            double roll   = Math.random();
+            double chance = hoe.getTntSpawnChance(player);
+            plugin.getLogger().info("[TNT-DEBUG] roll=" + String.format("%.5f", roll)
+                    + " chance=" + String.format("%.5f", chance)
+                    + " trigger=" + (roll < chance));
+            if (roll < chance) {
+                TntBombSession.trigger(plugin, player, tntLvl);
             }
         }
         // ──────────────────────────────────────────────────────────────────
