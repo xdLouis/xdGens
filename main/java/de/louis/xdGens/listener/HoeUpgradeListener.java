@@ -76,6 +76,7 @@ public class HoeUpgradeListener implements Listener {
                 case HoeUpgradeGUI.SLOT_TOKEN      -> new HoeUpgradeAmountGUI(plugin, "token").open(player);
                 case HoeUpgradeGUI.SLOT_HOE        -> handleHoeUpgrade(player);
                 case HoeUpgradeGUI.SLOT_KEY_FINDER -> new HoeUpgradeAmountGUI(plugin, "keyfinder").open(player);
+                case HoeUpgradeGUI.SLOT_PANDA      -> handlePandaUpgrade(player);
             }
             return;
         }
@@ -194,6 +195,40 @@ public class HoeUpgradeListener implements Listener {
                     MessageUtil.PREFIX + " <gradient:#c0c0c0:#ffffff>Hoe upgraded to Level "
                     + mgr.getHoeLevel(player) + "!</gradient>"
                     + " <gray>(-$" + NumberUtil.format(cost) + ")</gray>");
+            gui.open(player);
+        }
+    }
+
+    private void handlePandaUpgrade(Player player) {
+        HoeUpgradeManager mgr = plugin.getHoeUpgradeManager();
+
+        if (!mgr.canUnlockPanda(player)) {
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                    + " <red>🔒 Panda Roller requires <white>Prestige "
+                    + HoeUpgradeManager.PANDA_REQUIRED_PRESTIGE + "</white> to unlock!</red>");
+            return;
+        }
+        int lvl = mgr.getPandaLevel(player);
+        if (lvl >= HoeUpgradeManager.MAX_PANDA_LEVEL) {
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gold>Panda Roller is already max level!</gold>");
+            return;
+        }
+        int  cost   = mgr.getPandaCost(lvl + 1);
+        long tokens = plugin.getCurrencyManager().getTokens(player);
+        if (tokens < cost) {
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                    + " <red>Not enough Tokens. Need: <white>" + NumberUtil.format(cost) + "</white></red>");
+            return;
+        }
+        if (mgr.upgradePanda(player)) {
+            int newLvl = mgr.getPandaLevel(player);
+            int spawnPct = newLvl;
+            int bonusPct = (int) Math.round(mgr.getPandaRewardBonus(player) * 100);
+            MessageUtil.sendRaw(player,
+                    MessageUtil.PREFIX + " <gradient:#a8e6cf:#88d8b0>🐼 Panda Roller → Level "
+                    + newLvl + "!</gradient>"
+                    + " <gray>(" + spawnPct + "% spawn · +" + bonusPct + "% bonus)</gray>"
+                    + " <gray>(-" + NumberUtil.format(cost) + " Tokens)</gray>");
             gui.open(player);
         }
     }

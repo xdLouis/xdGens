@@ -3,9 +3,8 @@ package de.louis.xdGens.listener;
 import de.louis.xdGens.field.FieldManager;
 import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.CurrencyManager;
+import de.louis.xdGens.manager.HoeUpgradeManager;
 import de.louis.xdGens.skill.PandaRollSession;
-import de.louis.xdGens.skill.PandaRollerSkill;
-import de.louis.xdGens.skill.SkillRegistry;
 import de.louis.xdGens.util.CustomItemUtil;
 import de.louis.xdGens.util.HoeUtil;
 import de.louis.xdGens.util.MessageUtil;
@@ -65,11 +64,11 @@ public class FieldListener implements Listener {
         double xpMin    = plugin.getConfig().getDouble("rewards.wheat.xp.min", 8.0);
         double xpMax    = plugin.getConfig().getDouble("rewards.wheat.xp.max", 16.0);
 
-        int    baseTokens  = Rng.between(tokenMin, tokenMax);
+        int    baseTokens         = Rng.between(tokenMin, tokenMax);
         double hoeMultiplier      = plugin.getHoeUpgradeManager().getTokenMultiplier(player);
         double prestigeMultiplier = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
-        long   finalTokens = Math.round(baseTokens * hoeMultiplier * prestigeMultiplier);
-        double finalXp     = Rng.between(xpMin, xpMax) * plugin.getHoeUpgradeManager().getXpMultiplier(player);
+        long   finalTokens        = Math.round(baseTokens * hoeMultiplier * prestigeMultiplier);
+        double finalXp            = Rng.between(xpMin, xpMax) * plugin.getHoeUpgradeManager().getXpMultiplier(player);
 
         int totalCrops = 1 + plugin.getHoeUpgradeManager().getCropBonus(player);
         int stored     = plugin.getBackpackManager().addWheat(player, totalCrops);
@@ -85,28 +84,25 @@ public class FieldListener implements Listener {
         plugin.getProgressionManager().addXp(player, finalXp);
         plugin.getActionBarManager().addHarvest(player, Math.toIntExact(finalTokens), finalXp);
 
-        // ── Panda Roller skill ───────────────────────────────────────────
-        // Feed harvest into active session (if one is running)
+        // ── Panda Roller ──────────────────────────────────────────────────
+        // Feed into active session first
         PandaRollSession.addHarvest(player.getUniqueId(), finalTokens, finalXp);
 
-        // Try to trigger a new session
-        if (!PandaRollSession.isActive(player.getUniqueId())) {
-            PandaRollerSkill pandaSkill = (PandaRollerSkill) SkillRegistry.get("panda_roller");
-            int pandaLevel = plugin.getSkillManager().getLevel(player, "panda_roller");
-            if (pandaLevel > 0 && pandaSkill != null) {
-                double chance = pandaSkill.spawnChance(pandaLevel);
-                if (Math.random() < chance) {
-                    new PandaRollSession(
-                            plugin, player,
-                            pandaSkill.rewardBonus(pandaLevel),
-                            pandaSkill.rollDurationTicks()
-                    ).start();
-                }
+        // Try to start a new session (only if panda_roller is unlocked, level >= 1)
+        HoeUpgradeManager hoe = plugin.getHoeUpgradeManager();
+        if (!PandaRollSession.isActive(player.getUniqueId()) && hoe.getPandaLevel(player) >= 1) {
+            double chance = hoe.getPandaSpawnChance(player);
+            if (Math.random() < chance) {
+                new PandaRollSession(
+                        plugin, player,
+                        hoe.getPandaRewardBonus(player),
+                        140  // 7 seconds
+                ).start();
             }
         }
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────
 
-        // ── Key Finder ───────────────────────────────────────────────
+        // ── Key Finder ────────────────────────────────────────────────────
         if (plugin.getHoeUpgradeManager().getKeyFinderLevel(player) > 0) {
             boolean found = plugin.getCrateManager().tryGiveRandomKey(player);
             if (found) {
