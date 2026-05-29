@@ -16,8 +16,10 @@ import de.louis.xdGens.manager.BackpackManager;
 import de.louis.xdGens.manager.CrateManager;
 import de.louis.xdGens.manager.CurrencyManager;
 import de.louis.xdGens.manager.HoeUpgradeManager;
+import de.louis.xdGens.manager.PlayerCosmeticManager;
 import de.louis.xdGens.manager.ProgressionManager;
 import de.louis.xdGens.manager.ScoreboardManager;
+import de.louis.xdGens.manager.VirtualKeyManager;
 import de.louis.xdGens.manager.WorkstationManager;
 import de.louis.xdGens.util.MessageUtil;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -36,6 +38,8 @@ public final class Main extends JavaPlugin {
     private HoeUpgradeManager hoeUpgradeManager;
     private BackpackManager backpackManager;
     private CrateManager crateManager;
+    private VirtualKeyManager virtualKeyManager;
+    private PlayerCosmeticManager playerCosmeticManager;
     private LobbyProtectionListener lobbyProtectionListener;
 
     @Override
@@ -44,16 +48,18 @@ public final class Main extends JavaPlugin {
 
         saveDefaultConfig();
 
-        this.currencyManager = new CurrencyManager(this);
-        this.fieldManager = new FieldManager(this);
-        this.hologramManager = new de.louis.xdGens.hologram.HologramManager(this);
-        this.workstationManager = new WorkstationManager(this, hologramManager);
-        this.actionBarManager = new ActionBarManager(this);
-        this.scoreboardManager = new ScoreboardManager(this);
-        this.progressionManager = new ProgressionManager(this);
-        this.hoeUpgradeManager = new HoeUpgradeManager(this);
-        this.backpackManager = new BackpackManager(this);
-        this.crateManager = new CrateManager(this);
+        this.currencyManager       = new CurrencyManager(this);
+        this.fieldManager          = new FieldManager(this);
+        this.hologramManager       = new de.louis.xdGens.hologram.HologramManager(this);
+        this.workstationManager    = new WorkstationManager(this, hologramManager);
+        this.actionBarManager      = new ActionBarManager(this);
+        this.scoreboardManager     = new ScoreboardManager(this);
+        this.progressionManager    = new ProgressionManager(this);
+        this.hoeUpgradeManager     = new HoeUpgradeManager(this);
+        this.backpackManager       = new BackpackManager(this);
+        this.virtualKeyManager     = new VirtualKeyManager(this);
+        this.playerCosmeticManager = new PlayerCosmeticManager(this);
+        this.crateManager          = new CrateManager(this);
         this.lobbyProtectionListener = new LobbyProtectionListener(this);
 
         getServer().getPluginManager().registerEvents(new FieldListener(this), this);
@@ -116,24 +122,28 @@ public final class Main extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (currencyManager != null) currencyManager.saveAll();
-        if (progressionManager != null) progressionManager.saveAll();
-        if (hoeUpgradeManager != null) hoeUpgradeManager.saveAll();
-        if (backpackManager != null) backpackManager.saveAll();
-        if (workstationManager != null) workstationManager.removeAll();
-        if (actionBarManager != null) actionBarManager.stop();
+        if (currencyManager       != null) currencyManager.saveAll();
+        if (progressionManager    != null) progressionManager.saveAll();
+        if (hoeUpgradeManager     != null) hoeUpgradeManager.saveAll();
+        if (backpackManager       != null) backpackManager.saveAll();
+        if (workstationManager    != null) workstationManager.removeAll();
+        if (actionBarManager      != null) actionBarManager.stop();
+        if (virtualKeyManager     != null) virtualKeyManager.save();
+        if (playerCosmeticManager != null) playerCosmeticManager.save();
         getLogger().info("xdGens disabled.");
     }
 
-    public static Main get() { return instance; }
-    public FieldManager getFieldManager() { return fieldManager; }
-    public CurrencyManager getCurrencyManager() { return currencyManager; }
+    public static Main get()                                      { return instance; }
+    public FieldManager getFieldManager()                         { return fieldManager; }
+    public CurrencyManager getCurrencyManager()                   { return currencyManager; }
     public de.louis.xdGens.hologram.HologramManager getHologramManager() { return hologramManager; }
-    public WorkstationManager getWorkstationManager() { return workstationManager; }
-    public ActionBarManager getActionBarManager() { return actionBarManager; }
-    public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
-    public ProgressionManager getProgressionManager() { return progressionManager; }
-    public HoeUpgradeManager getHoeUpgradeManager() { return hoeUpgradeManager; }
-    public BackpackManager getBackpackManager() { return backpackManager; }
-    public CrateManager getCrateManager() { return crateManager; }
+    public WorkstationManager getWorkstationManager()             { return workstationManager; }
+    public ActionBarManager getActionBarManager()                 { return actionBarManager; }
+    public ScoreboardManager getScoreboardManager()               { return scoreboardManager; }
+    public ProgressionManager getProgressionManager()             { return progressionManager; }
+    public HoeUpgradeManager getHoeUpgradeManager()               { return hoeUpgradeManager; }
+    public BackpackManager getBackpackManager()                   { return backpackManager; }
+    public CrateManager getCrateManager()                         { return crateManager; }
+    public VirtualKeyManager getVirtualKeyManager()               { return virtualKeyManager; }
+    public PlayerCosmeticManager getPlayerCosmeticManager()       { return playerCosmeticManager; }
 }
