@@ -13,298 +13,264 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 public class XdAdminCommand implements CommandExecutor, TabCompleter {
 
     private final Main plugin;
 
-    private static final List<String> TAGS = Arrays.stream(CrateReward.values())
-            .filter(CrateReward::isTag).map(Enum::name).toList();
-    private static final List<String> COLORS = Arrays.stream(CrateReward.values())
-            .filter(CrateReward::isColor).map(Enum::name).toList();
-    private static final List<String> CRATE_TYPES = Arrays.stream(CrateType.values())
-            .map(Enum::name).toList();
+    // ── cached reward lists ───────────────────────────────────────────────
+    private static final List<String> TAGS = rewardNames(CrateReward::isTag);
+    private static final List<String> COLORS = rewardNames(CrateReward::isColor);
+    private static final List<String> CHAT_COLORS = rewardNames(CrateReward::isChatColor);
+    private static final List<String> GLOWS = rewardNames(r -> r.getType() == CrateReward.Type.GLOW);
+    private static final List<String> CRATE_TYPES = Arrays.stream(CrateType.values()).map(Enum::name).toList();
+    private static final List<String> MODIFY_ACTIONS = List.of("set", "add", "remove");
+    private static final List<String> MODIFY_SUBS = List.of("money", "tokens", "xp", "level", "prestige");
 
     public XdAdminCommand(Main plugin) {
         this.plugin = plugin;
     }
 
+    // ── command dispatch ──────────────────────────────────────────────────
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("xdgens.admin")) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>You do not have permission.</red>");
+            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>No permission.</red>");
             return true;
         }
-
         if (args.length == 0) { sendUsage(sender); return true; }
 
         switch (args[0].toLowerCase()) {
-            case "info"     -> handleInfo(sender, args);
-            case "reset"    -> handleReset(sender, args);
-            case "givekey"  -> handleGiveKey(sender, args);
-            case "givetag"  -> handleGiveTag(sender, args);
-            case "givecolor"-> handleGiveColor(sender, args);
-            case "money", "tokens", "xp", "level", "prestige" -> handleModify(sender, args[0].toLowerCase(), args);
-            default         -> sendUsage(sender);
+            case "info"          -> handleInfo(sender, args);
+            case "reset"         -> handleReset(sender, args);
+            case "givekey"       -> handleGiveKey(sender, args);
+            case "givetag"       -> handleGiveCosmetic(sender, args, CrateReward.Type.TAG,        TAGS,        "tag");
+            case "givecolor"     -> handleGiveCosmetic(sender, args, CrateReward.Type.NAME_COLOR, COLORS,      "name color");
+            case "givechatcolor" -> handleGiveCosmetic(sender, args, CrateReward.Type.CHAT_COLOR, CHAT_COLORS, "chat color");
+            case "giveglow"      -> handleGiveCosmetic(sender, args, CrateReward.Type.GLOW,       GLOWS,       "glow");
+            default -> {
+                if (MODIFY_SUBS.contains(args[0].toLowerCase())) handleModify(sender, args[0].toLowerCase(), args);
+                else sendUsage(sender);
+            }
         }
         return true;
     }
 
-    // ── givekey ──────────────────────────────────────────────────────────
-    // /xdadmin givekey <player> <crate> [amount]
+    // ── /xdadmin givekey <player> <crate> [amount] ───────────────────────
 
     private void handleGiveKey(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Usage: /xdadmin givekey <player> <crate> [amount]</red>");
-            return;
-        }
+        if (args.length < 3) { syntax(sender, "givekey <player> <crate> [amount]"); return; }
         Player target = resolvePlayer(sender, args[1]);
         if (target == null) return;
 
         CrateType crate;
         try { crate = CrateType.valueOf(args[2].toUpperCase()); }
         catch (IllegalArgumentException e) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Unknown crate: " + args[2] + ". Valid: " + CRATE_TYPES + "</red>");
+            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Unknown crate. Valid: " + CRATE_TYPES + "</red>");
             return;
         }
 
         int amount = 1;
         if (args.length >= 4) {
-            try { amount = Integer.parseInt(args[3]); }
-            catch (NumberFormatException e) {
-                MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Invalid amount.</red>");
-                return;
-            }
+            try { amount = (int) Math.max(1, Math.min(parseAmount(args[3]), 1000)); }
+            catch (NumberFormatException e) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Invalid amount.</red>"); return; }
         }
-        amount = Math.max(1, Math.min(amount, 1000));
 
         for (int i = 0; i < amount; i++) plugin.getVirtualKeyManager().addKey(target, crate);
         int total = plugin.getVirtualKeyManager().getKeys(target, crate);
 
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>Gave <white>" + amount + "x "
-                + crate.getDisplayName() + " Key</white> to <yellow>" + target.getName()
-                + "</yellow>. Total: <white>" + total + "</white></green>");
+        ok(sender, "Gave <white>" + amount + "x " + crate.getDisplayName() + " Key</white> to <yellow>" + target.getName() + "</yellow>. Total: " + total);
         MessageUtil.sendRaw(target, MessageUtil.PREFIX + " <green>You received <white>" + amount + "x "
-                + crate.getGradient() + crate.getDisplayName() + " Key</gradient></white>! Open it in <white>/crates</white>.");
+                + crate.getGradient() + crate.getDisplayName() + " Key</gradient></white>!");
     }
 
-    // ── givetag ──────────────────────────────────────────────────────────
-    // /xdadmin givetag <player> <tag>
+    // ── /xdadmin give<tag|color|chatcolor|glow> <player> <reward|*> ───────
+    // Pass "*" as reward to unlock ALL rewards of that type at once.
 
-    private void handleGiveTag(CommandSender sender, String[] args) {
+    private void handleGiveCosmetic(CommandSender sender, String[] args,
+                                     CrateReward.Type type, List<String> validNames, String label) {
         if (args.length < 3) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Usage: /xdadmin givetag <player> <tag></red>");
-            MessageUtil.sendRaw(sender, "<dark_gray>Tags: " + String.join(", ", TAGS));
+            syntax(sender, args[0].toLowerCase() + " <player> <" + label + "|*>");
+            MessageUtil.sendRaw(sender, "<dark_gray>Available: " + String.join(", ", validNames));
             return;
         }
         Player target = resolvePlayer(sender, args[1]);
         if (target == null) return;
 
+        // ── wildcard: unlock every reward of this type ──
+        if (args[2].equals("*")) {
+            int count = 0;
+            for (CrateReward r : CrateReward.values()) {
+                if (r.getType() == type && plugin.getPlayerCosmeticManager().unlock(target, r)) count++;
+            }
+            ok(sender, "Unlocked <white>" + count + " new " + label + "(s)</white> for <yellow>" + target.getName() + "</yellow>.");
+            MessageUtil.sendRaw(target, MessageUtil.PREFIX + " <green>\u2728 Admin unlocked ALL " + label + "s! Use <white>/cosmetics</white>.");
+            return;
+        }
+
+        // ── single reward ──
         CrateReward reward;
         try {
             reward = CrateReward.valueOf(args[2].toUpperCase());
-            if (!reward.isTag()) throw new IllegalArgumentException();
+            if (reward.getType() != type) throw new IllegalArgumentException();
         } catch (IllegalArgumentException e) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Unknown tag: " + args[2] + "</red>");
-            MessageUtil.sendRaw(sender, "<dark_gray>Valid tags: " + String.join(", ", TAGS));
+            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Unknown " + label + ": " + args[2] + "</red>");
+            MessageUtil.sendRaw(sender, "<dark_gray>Valid: " + String.join(", ", validNames));
             return;
         }
 
         boolean isNew = plugin.getPlayerCosmeticManager().unlock(target, reward);
-        String preview = reward.getCosmeticFormat();
+        String preview = buildPreview(reward, target);
 
         if (isNew) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>Unlocked tag <white>"
-                    + preview + "</white> for <yellow>" + target.getName() + "</yellow>.</green>");
-            MessageUtil.sendRaw(target, MessageUtil.PREFIX + " <green>\u2728 Admin unlocked tag: " + preview
-                    + " <gray>| Use <white>/cosmetics</white> to equip.");
+            ok(sender, "Unlocked " + label + " <white>" + preview + "</white> for <yellow>" + target.getName() + "</yellow>.");
+            MessageUtil.sendRaw(target, MessageUtil.PREFIX + " <green>\u2728 Admin unlocked " + label + ": "
+                    + preview + " <gray>| <white>/cosmetics</white> to equip.");
         } else {
             MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <yellow>" + target.getName()
                     + " already has " + reward.getDisplayName() + ".</yellow>");
         }
     }
 
-    // ── givecolor ─────────────────────────────────────────────────────────
-    // /xdadmin givecolor <player> <color>
-
-    private void handleGiveColor(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Usage: /xdadmin givecolor <player> <color></red>");
-            MessageUtil.sendRaw(sender, "<dark_gray>Colors: " + String.join(", ", COLORS));
-            return;
-        }
-        Player target = resolvePlayer(sender, args[1]);
-        if (target == null) return;
-
-        CrateReward reward;
-        try {
-            reward = CrateReward.valueOf(args[2].toUpperCase());
-            if (!reward.isColor()) throw new IllegalArgumentException();
-        } catch (IllegalArgumentException e) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Unknown color: " + args[2] + "</red>");
-            MessageUtil.sendRaw(sender, "<dark_gray>Valid colors: " + String.join(", ", COLORS));
-            return;
-        }
-
-        boolean isNew = plugin.getPlayerCosmeticManager().unlock(target, reward);
-        String preview = reward.getCosmeticFormat().replace("{name}", target.getName());
-
-        if (isNew) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>Unlocked color <white>"
-                    + preview + "</white> for <yellow>" + target.getName() + "</yellow>.</green>");
-            MessageUtil.sendRaw(target, MessageUtil.PREFIX + " <green>\u2728 Admin unlocked name color: " + preview
-                    + " <gray>| Use <white>/cosmetics</white> to equip.");
-        } else {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <yellow>" + target.getName()
-                    + " already has " + reward.getDisplayName() + ".</yellow>");
-        }
-    }
-
-    // ── existing handlers ────────────────────────────────────────────────────
+    // ── /xdadmin info <player> ────────────────────────────────────────────
 
     private void handleInfo(CommandSender sender, String[] args) {
-        if (args.length < 2) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Usage: /xdadmin info <player></red>"); return; }
-        Player target = resolvePlayer(sender, args[1]);
-        if (target == null) return;
+        if (args.length < 2) { syntax(sender, "info <player>"); return; }
+        Player t = resolvePlayer(sender, args[1]);
+        if (t == null) return;
 
-        double money   = plugin.getCurrencyManager().getMoney(target);
-        long tokens    = plugin.getCurrencyManager().getTokens(target);
-        int level      = plugin.getProgressionManager().getLevel(target);
-        int prestige   = plugin.getProgressionManager().getPrestige(target);
-        double xp      = plugin.getProgressionManager().getXp(target);
-        int reqXp      = plugin.getProgressionManager().getRequiredXp(target);
-        int keys       = CrateType.values().length;
-        StringBuilder keyInfo = new StringBuilder();
-        for (CrateType ct : CrateType.values()) {
-            keyInfo.append(ct.getDisplayName()).append(":").append(plugin.getVirtualKeyManager().getKeys(target, ct)).append(" ");
-        }
+        var cosm = plugin.getPlayerCosmeticManager();
+        StringBuilder keys = new StringBuilder();
+        for (CrateType ct : CrateType.values())
+            keys.append(ct.getDisplayName()).append(":").append(plugin.getVirtualKeyManager().getKeys(t, ct)).append("  ");
 
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <gray>Info: <yellow>" + target.getName() + "</yellow></gray>");
-        MessageUtil.sendRaw(sender, "<gray>Money:</gray> <green>$" + NumberUtil.format(money) + "</green>");
-        MessageUtil.sendRaw(sender, "<gray>Tokens:</gray> <gold>" + NumberUtil.format(tokens) + "</gold>");
-        MessageUtil.sendRaw(sender, "<gray>Level:</gray> <aqua>" + level + "</aqua>");
-        MessageUtil.sendRaw(sender, "<gray>XP:</gray> <aqua>" + NumberUtil.format(xp) + " / " + NumberUtil.format(reqXp) + "</aqua>");
-        MessageUtil.sendRaw(sender, "<gray>Prestige:</gray> <gradient:#f6d365:#fda085>" + prestige + "</gradient>");
-        MessageUtil.sendRaw(sender, "<gray>Keys:</gray> <white>" + keyInfo.toString().trim() + "</white>");
-        MessageUtil.sendRaw(sender, "<gray>Tags:</gray> <white>" + plugin.getPlayerCosmeticManager().getUnlockedTags(target).size() + " unlocked</white>");
-        MessageUtil.sendRaw(sender, "<gray>Colors:</gray> <white>" + plugin.getPlayerCosmeticManager().getUnlockedColors(target).size() + " unlocked</white>");
+        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <gray>\u2500\u2500 Info: <yellow>" + t.getName() + "</yellow> \u2500\u2500</gray>");
+        MessageUtil.sendRaw(sender, "<gray>Money:     </gray><green>$" + NumberUtil.format(plugin.getCurrencyManager().getMoney(t)) + "</green>");
+        MessageUtil.sendRaw(sender, "<gray>Tokens:    </gray><gold>" + NumberUtil.format(plugin.getCurrencyManager().getTokens(t)) + "</gold>");
+        MessageUtil.sendRaw(sender, "<gray>Level:     </gray><aqua>" + plugin.getProgressionManager().getLevel(t) + "</aqua>");
+        MessageUtil.sendRaw(sender, "<gray>XP:        </gray><aqua>" + NumberUtil.format(plugin.getProgressionManager().getXp(t))
+                + " / " + NumberUtil.format(plugin.getProgressionManager().getRequiredXp(t)) + "</aqua>");
+        MessageUtil.sendRaw(sender, "<gray>Prestige:  </gray><gradient:#f6d365:#fda085>" + plugin.getProgressionManager().getPrestige(t) + "</gradient>");
+        MessageUtil.sendRaw(sender, "<gray>Keys:      </gray><white>" + keys.toString().trim() + "</white>");
+        MessageUtil.sendRaw(sender, "<gray>Tags:      </gray><white>" + cosm.getUnlockedTags(t).size() + " unlocked</white>");
+        MessageUtil.sendRaw(sender, "<gray>Colors:    </gray><white>" + cosm.getUnlockedColors(t).size() + " / "
+                + cosm.getUnlockedChatColors(t).size() + " chat</white>");
+        MessageUtil.sendRaw(sender, "<gray>Glows:     </gray><white>" + cosm.getUnlockedGlows(t).size() + " unlocked</white>");
     }
+
+    // ── /xdadmin reset <player> ───────────────────────────────────────────
 
     private void handleReset(CommandSender sender, String[] args) {
-        if (args.length < 2) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Usage: /xdadmin reset <player></red>"); return; }
-        Player target = resolvePlayer(sender, args[1]);
-        if (target == null) return;
+        if (args.length < 2) { syntax(sender, "reset <player>"); return; }
+        Player t = resolvePlayer(sender, args[1]);
+        if (t == null) return;
 
-        plugin.getCurrencyManager().setMoney(target, 0.0);
-        plugin.getCurrencyManager().setTokens(target, 0L);
-        setProgressValue(target, "level", 1);
-        setProgressValue(target, "prestige", 0);
-        setProgressValue(target, "xp", 0.0);
-        plugin.getCurrencyManager().savePlayer(target);
-        plugin.getProgressionManager().savePlayer(target);
-        plugin.getProgressionManager().updateDisplays(target);
+        plugin.getCurrencyManager().setMoney(t, 0.0);
+        plugin.getCurrencyManager().setTokens(t, 0L);
+        setProgressValue(t, "level", 1);
+        setProgressValue(t, "prestige", 0);
+        setProgressValue(t, "xp", 0.0);
+        plugin.getCurrencyManager().savePlayer(t);
+        plugin.getProgressionManager().savePlayer(t);
+        plugin.getProgressionManager().updateDisplays(t);
 
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>Reset <yellow>" + target.getName() + "</yellow>.</green>");
-        MessageUtil.sendRaw(target, MessageUtil.PREFIX + " <red>Your data has been reset by an admin.</red>");
+        ok(sender, "Reset <yellow>" + t.getName() + "</yellow>.");
+        MessageUtil.sendRaw(t, MessageUtil.PREFIX + " <red>Your data was reset by an admin.</red>");
     }
 
+    // ── /xdadmin <money|tokens|xp|level|prestige> <set|add|remove> <player> <amount> ─
+
     private void handleModify(CommandSender sender, String type, String[] args) {
-        if (args.length < 4) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Usage: /xdadmin " + type + " <set|add|remove> <player> <amount></red>");
-            return;
-        }
+        if (args.length < 4) { syntax(sender, type + " <set|add|remove> <player> <amount>"); return; }
         String action = args[1].toLowerCase();
-        Player target = resolvePlayer(sender, args[2]);
-        if (target == null) return;
+        Player t = resolvePlayer(sender, args[2]);
+        if (t == null) return;
 
         double amount;
         try { amount = parseAmount(args[3]); }
-        catch (NumberFormatException e) {
-            MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Invalid amount.</red>");
-            return;
-        }
+        catch (NumberFormatException e) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Invalid amount.</red>"); return; }
         if (amount < 0) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Amount must be positive.</red>"); return; }
 
         switch (type) {
-            case "money"   -> handleMoney(sender, target, action, amount);
-            case "tokens"  -> handleTokens(sender, target, action, Math.round(amount));
-            case "xp"      -> handleXp(sender, target, action, amount);
-            case "level"   -> handleLevel(sender, target, action, (int) Math.round(amount));
-            case "prestige"-> handlePrestige(sender, target, action, (int) Math.round(amount));
+            case "money"    -> modifyMoney(sender, t, action, amount);
+            case "tokens"   -> modifyTokens(sender, t, action, Math.round(amount));
+            case "xp"       -> modifyXp(sender, t, action, amount);
+            case "level"    -> modifyLevel(sender, t, action, (int) Math.round(amount));
+            case "prestige" -> modifyPrestige(sender, t, action, (int) Math.round(amount));
         }
     }
 
-    private void handleMoney(CommandSender sender, Player target, String action, double amount) {
+    private void modifyMoney(CommandSender sender, Player t, String action, double amount) {
         switch (action) {
-            case "set"    -> plugin.getCurrencyManager().setMoney(target, amount);
-            case "add"    -> plugin.getCurrencyManager().addMoney(target, amount);
-            case "remove" -> { if (!plugin.getCurrencyManager().removeMoney(target, amount)) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Not enough money.</red>"); return; } }
-            default       -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); return; }
+            case "set"    -> plugin.getCurrencyManager().setMoney(t, amount);
+            case "add"    -> plugin.getCurrencyManager().addMoney(t, amount);
+            case "remove" -> { if (!plugin.getCurrencyManager().removeMoney(t, amount)) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Not enough money.</red>"); return; } }
+            default -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); return; }
         }
-        plugin.getCurrencyManager().savePlayer(target);
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>Money → <white>$" + NumberUtil.format(plugin.getCurrencyManager().getMoney(target)) + "</white></green>");
+        plugin.getCurrencyManager().savePlayer(t);
+        ok(sender, "Money \u2192 <green>$" + NumberUtil.format(plugin.getCurrencyManager().getMoney(t)) + "</green>");
     }
 
-    private void handleTokens(CommandSender sender, Player target, String action, long amount) {
+    private void modifyTokens(CommandSender sender, Player t, String action, long amount) {
         switch (action) {
-            case "set"    -> plugin.getCurrencyManager().setTokens(target, amount);
-            case "add"    -> plugin.getCurrencyManager().addTokens(target, amount);
-            case "remove" -> { if (!plugin.getCurrencyManager().removeTokens(target, amount)) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Not enough tokens.</red>"); return; } }
-            default       -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); return; }
+            case "set"    -> plugin.getCurrencyManager().setTokens(t, amount);
+            case "add"    -> plugin.getCurrencyManager().addTokens(t, amount);
+            case "remove" -> { if (!plugin.getCurrencyManager().removeTokens(t, amount)) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Not enough tokens.</red>"); return; } }
+            default -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); return; }
         }
-        plugin.getCurrencyManager().savePlayer(target);
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>Tokens → <gold>" + NumberUtil.format(plugin.getCurrencyManager().getTokens(target)) + "</gold></green>");
+        plugin.getCurrencyManager().savePlayer(t);
+        ok(sender, "Tokens \u2192 <gold>" + NumberUtil.format(plugin.getCurrencyManager().getTokens(t)) + "</gold>");
     }
 
-    private void handleXp(CommandSender sender, Player target, String action, double amount) {
-        double cur = plugin.getProgressionManager().getXp(target);
+    private void modifyXp(CommandSender sender, Player t, String action, double amount) {
+        double cur = plugin.getProgressionManager().getXp(t);
         double upd = switch (action) {
             case "set"    -> amount;
             case "add"    -> cur + amount;
             case "remove" -> Math.max(0, cur - amount);
-            default       -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); yield cur; }
+            default -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); yield cur; }
         };
-        setProgressValue(target, "xp", upd);
-        plugin.getProgressionManager().savePlayer(target);
-        plugin.getProgressionManager().updateDisplays(target);
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>XP → <aqua>" + NumberUtil.format(upd) + "</aqua></green>");
+        setProgressValue(t, "xp", upd);
+        plugin.getProgressionManager().savePlayer(t);
+        plugin.getProgressionManager().updateDisplays(t);
+        ok(sender, "XP \u2192 <aqua>" + NumberUtil.format(upd) + "</aqua>");
     }
 
-    private void handleLevel(CommandSender sender, Player target, String action, int amount) {
-        int cur = plugin.getProgressionManager().getLevel(target);
-        int upd = Math.min(plugin.getProgressionManager().getMaxLevel(), Math.max(1, switch (action) {
+    private void modifyLevel(CommandSender sender, Player t, String action, int amount) {
+        int cur = plugin.getProgressionManager().getLevel(t);
+        int max = plugin.getProgressionManager().getMaxLevel();
+        int upd = Math.min(max, Math.max(1, switch (action) {
             case "set"    -> amount;
             case "add"    -> cur + amount;
             case "remove" -> cur - amount;
-            default       -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); yield cur; }
+            default -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); yield cur; }
         }));
-        setProgressValue(target, "level", upd);
-        plugin.getProgressionManager().savePlayer(target);
-        plugin.getProgressionManager().updateDisplays(target);
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>Level → <aqua>" + upd + "</aqua></green>");
+        setProgressValue(t, "level", upd);
+        plugin.getProgressionManager().savePlayer(t);
+        plugin.getProgressionManager().updateDisplays(t);
+        ok(sender, "Level \u2192 <aqua>" + upd + "</aqua>");
     }
 
-    private void handlePrestige(CommandSender sender, Player target, String action, int amount) {
-        int cur = plugin.getProgressionManager().getPrestige(target);
+    private void modifyPrestige(CommandSender sender, Player t, String action, int amount) {
+        int cur = plugin.getProgressionManager().getPrestige(t);
         int upd = Math.max(0, switch (action) {
             case "set"    -> amount;
             case "add"    -> cur + amount;
             case "remove" -> cur - amount;
-            default       -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); yield cur; }
+            default -> { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Use set, add or remove.</red>"); yield cur; }
         });
-        setProgressValue(target, "prestige", upd);
-        plugin.getProgressionManager().savePlayer(target);
-        plugin.getProgressionManager().updateDisplays(target);
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>Prestige → <gradient:#f6d365:#fda085>" + upd + "</gradient></green>");
+        setProgressValue(t, "prestige", upd);
+        plugin.getProgressionManager().savePlayer(t);
+        plugin.getProgressionManager().updateDisplays(t);
+        ok(sender, "Prestige \u2192 <gradient:#f6d365:#fda085>" + upd + "</gradient>");
     }
 
-    // ── tab complete ─────────────────────────────────────────────────────
+    // ── tab complete ──────────────────────────────────────────────────────
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
@@ -312,26 +278,27 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             return filter(List.of("info", "reset", "givekey", "givetag", "givecolor",
+                    "givechatcolor", "giveglow",
                     "money", "tokens", "xp", "level", "prestige"), args[0]);
         }
 
         String sub = args[0].toLowerCase();
 
         if (args.length == 2) {
-            // player name for most subcommands
-            if (List.of("info", "reset", "givekey", "givetag", "givecolor").contains(sub)) {
+            if (List.of("info", "reset", "givekey", "givetag", "givecolor", "givechatcolor", "giveglow").contains(sub))
                 return filterPlayers(args[1]);
-            }
-            // action for modify commands
-            return filter(List.of("set", "add", "remove"), args[1]);
+            if (MODIFY_SUBS.contains(sub)) return filter(MODIFY_ACTIONS, args[1]);
+            return List.of();
         }
 
         if (args.length == 3) {
             return switch (sub) {
-                case "givekey"   -> filter(CRATE_TYPES, args[2]);
-                case "givetag"   -> filter(TAGS, args[2]);
-                case "givecolor" -> filter(COLORS, args[2]);
-                default          -> filterPlayers(args[2]); // modify: player arg
+                case "givekey"       -> filter(CRATE_TYPES, args[2]);
+                case "givetag"       -> withWildcard(TAGS, args[2]);
+                case "givecolor"     -> withWildcard(COLORS, args[2]);
+                case "givechatcolor" -> withWildcard(CHAT_COLORS, args[2]);
+                case "giveglow"      -> withWildcard(GLOWS, args[2]);
+                default              -> filterPlayers(args[2]); // modify: player
             };
         }
 
@@ -343,12 +310,40 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         return List.of();
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────
+    // ── helpers ───────────────────────────────────────────────────────────
+
+    private static List<String> rewardNames(java.util.function.Predicate<CrateReward> filter) {
+        return Arrays.stream(CrateReward.values()).filter(filter).map(Enum::name).toList();
+    }
+
+    /** Returns the list with "*" prepended if the current input starts with it or is empty. */
+    private List<String> withWildcard(List<String> base, String current) {
+        java.util.List<String> merged = new java.util.ArrayList<>();
+        merged.add("*");
+        merged.addAll(base);
+        return filter(merged, current);
+    }
+
+    private String buildPreview(CrateReward reward, Player target) {
+        if (reward.isTag())       return reward.getCosmeticFormat();
+        if (reward.isColor())     return reward.getCosmeticFormat().replace("{name}", target.getName());
+        if (reward.isChatColor()) return reward.getCosmeticFormat().replace("{msg}", "Hello!");
+        // glow
+        return "<yellow>\u2728 " + reward.getDisplayName() + "</yellow>";
+    }
+
+    private void ok(CommandSender sender, String msg) {
+        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <green>" + msg + "</green>");
+    }
+
+    private void syntax(CommandSender sender, String usage) {
+        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Usage: /xdadmin " + usage + "</red>");
+    }
 
     private Player resolvePlayer(CommandSender sender, String name) {
-        Player target = Bukkit.getPlayerExact(name);
-        if (target == null) MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Player '" + name + "' not found.</red>");
-        return target;
+        Player t = Bukkit.getPlayerExact(name);
+        if (t == null) MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Player '" + name + "' not found.</red>");
+        return t;
     }
 
     private List<String> filterPlayers(String current) {
@@ -366,16 +361,16 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
     private double parseAmount(String input) throws NumberFormatException {
         String n = input.trim().toLowerCase().replace(",", ".");
         char last = n.charAt(n.length() - 1);
-        double multiplier = 1.0;
+        double mult = 1.0;
         if (Character.isLetter(last)) {
-            multiplier = switch (last) {
-                case 'k' -> 1_000D; case 'm' -> 1_000_000D;
-                case 'b' -> 1_000_000_000D; case 't' -> 1_000_000_000_000D;
+            mult = switch (last) {
+                case 'k' -> 1_000D;           case 'm' -> 1_000_000D;
+                case 'b' -> 1_000_000_000D;   case 't' -> 1_000_000_000_000D;
                 default  -> throw new NumberFormatException("Unknown suffix: " + last);
             };
             n = n.substring(0, n.length() - 1);
         }
-        return Double.parseDouble(n) * multiplier;
+        return Double.parseDouble(n) * mult;
     }
 
     private void setProgressValue(Player player, String fieldName, Object value) {
@@ -406,12 +401,20 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendUsage(CommandSender sender) {
-        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <gray>Admin commands:</gray>");
-        MessageUtil.sendRaw(sender, "<yellow>/xdadmin info <player></yellow>");
-        MessageUtil.sendRaw(sender, "<yellow>/xdadmin reset <player></yellow>");
-        MessageUtil.sendRaw(sender, "<yellow>/xdadmin givekey <player> <crate> [amount]</yellow> <dark_gray>— COMMON/RARE/EPIC/LEGENDARY");
-        MessageUtil.sendRaw(sender, "<yellow>/xdadmin givetag <player> <tag></yellow> <dark_gray>— e.g. TAG_LEGEND");
-        MessageUtil.sendRaw(sender, "<yellow>/xdadmin givecolor <player> <color></yellow> <dark_gray>— e.g. COLOR_GRADIENT_FIRE");
-        MessageUtil.sendRaw(sender, "<yellow>/xdadmin money/tokens/xp/level/prestige <set|add|remove> <player> <amount></yellow>");
+        MessageUtil.sendRaw(sender, "<dark_gray>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+        MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <gray>Admin Commands</gray>");
+        MessageUtil.sendRaw(sender, "<dark_gray>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+        MessageUtil.sendRaw(sender, "<yellow>/xdadmin info <player>");
+        MessageUtil.sendRaw(sender, "<yellow>/xdadmin reset <player>");
+        MessageUtil.sendRaw(sender, "<dark_gray>\u2014 Keys");
+        MessageUtil.sendRaw(sender, "<yellow>/xdadmin givekey <player> <crate> [amount]");
+        MessageUtil.sendRaw(sender, "<dark_gray>\u2014 Cosmetics <gray>(use * for all)");
+        MessageUtil.sendRaw(sender, "<yellow>/xdadmin givetag <player> <tag|*>");
+        MessageUtil.sendRaw(sender, "<yellow>/xdadmin givecolor <player> <color|*>");
+        MessageUtil.sendRaw(sender, "<yellow>/xdadmin givechatcolor <player> <chatcolor|*>");
+        MessageUtil.sendRaw(sender, "<yellow>/xdadmin giveglow <player> <glow|*>");
+        MessageUtil.sendRaw(sender, "<dark_gray>\u2014 Economy");
+        MessageUtil.sendRaw(sender, "<yellow>/xdadmin money/tokens/xp/level/prestige <set|add|remove> <player> <amount>");
+        MessageUtil.sendRaw(sender, "<dark_gray>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
     }
 }
