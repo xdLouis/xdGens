@@ -13,7 +13,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class CosmeticsGUIListener implements Listener {
 
@@ -38,25 +41,28 @@ public class CosmeticsGUIListener implements Listener {
         PlayerCosmeticManager mgr = plugin.getPlayerCosmeticManager();
         CosmeticsGUI gui = new CosmeticsGUI(plugin);
 
-        // ── tab switches ──────────────────────────────────────────────
+        // ── tab switches ────────────────────────────────────────────
         if (slot == 0) { gui.openTags(player);       return; }
         if (slot == 1) { gui.openColors(player);     return; }
         if (slot == 2) { gui.openChatColors(player); return; }
+        if (slot == 3) { gui.openGlow(player);       return; }
 
-        // ── unequip ───────────────────────────────────────────────────
+        // ── unequip ─────────────────────────────────────────────
         if (slot == 8) {
             switch (tab) {
                 case TAGS        -> mgr.setActiveTag(player, null);
                 case NAME_COLORS -> mgr.setActiveColor(player, null);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, null);
+                case GLOW        -> mgr.setActiveGlow(player, null);
             }
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.8f);
-            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Removed active " + tab.name().toLowerCase().replace('_', ' ') + ".");
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Removed active "
+                    + tab.name().toLowerCase().replace('_', ' ') + ".");
             reopenTab(gui, player, tab);
             return;
         }
 
-        // ── cosmetic slots ────────────────────────────────────────────
+        // ── cosmetic slots ─────────────────────────────────────────
         int contentIdx = slotToContentIdx(slot);
         if (contentIdx < 0) return;
 
@@ -65,13 +71,16 @@ public class CosmeticsGUIListener implements Listener {
             case TAGS        -> CrateReward.Type.TAG;
             case NAME_COLORS -> CrateReward.Type.NAME_COLOR;
             case CHAT_COLORS -> CrateReward.Type.CHAT_COLOR;
+            case GLOW        -> CrateReward.Type.GLOW;
         };
-        java.util.List<CrateReward> all = new java.util.ArrayList<>();
+        List<CrateReward> all = new ArrayList<>();
         for (CrateReward r : CrateReward.values()) if (r.getType() == type) all.add(r);
-        java.util.Set<CrateReward> collection = switch (tab) {
+
+        Set<CrateReward> collection = switch (tab) {
             case TAGS        -> mgr.getUnlockedTags(player);
             case NAME_COLORS -> mgr.getUnlockedColors(player);
             case CHAT_COLORS -> mgr.getUnlockedChatColors(player);
+            case GLOW        -> mgr.getUnlockedGlows(player);
         };
         all.sort((a, b) -> {
             boolean ua = collection.contains(a), ub = collection.contains(b);
@@ -92,6 +101,7 @@ public class CosmeticsGUIListener implements Listener {
             case TAGS        -> mgr.getActiveTag(player);
             case NAME_COLORS -> mgr.getActiveColor(player);
             case CHAT_COLORS -> mgr.getActiveChatColor(player);
+            case GLOW        -> mgr.getActiveGlow(player);
         };
 
         if (active.isPresent() && active.get() == reward) {
@@ -100,32 +110,36 @@ public class CosmeticsGUIListener implements Listener {
                 case TAGS        -> mgr.setActiveTag(player, null);
                 case NAME_COLORS -> mgr.setActiveColor(player, null);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, null);
+                case GLOW        -> mgr.setActiveGlow(player, null);
             }
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.9f);
-            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Unequipped <white>" + reward.getDisplayName() + "</white>.");
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Unequipped <white>"
+                    + reward.getDisplayName() + "</white>.");
         } else {
             switch (tab) {
                 case TAGS        -> mgr.setActiveTag(player, reward);
                 case NAME_COLORS -> mgr.setActiveColor(player, reward);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, reward);
+                case GLOW        -> mgr.setActiveGlow(player, reward);
             }
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.4f);
-            String preview = reward.isColor()
-                    ? reward.getCosmeticFormat().replace("{name}", player.getName())
-                    : reward.isChatColor()
-                    ? reward.getCosmeticFormat().replace("{msg}", "Hello!")
-                    : reward.getCosmeticFormat();
+            String preview;
+            if (reward.isColor())         preview = reward.getCosmeticFormat().replace("{name}", player.getName());
+            else if (reward.isChatColor()) preview = reward.getCosmeticFormat().replace("{msg}", "Hello!");
+            else if (reward.isGlow())      preview = "<yellow>✨ " + reward.getDisplayName() + "</yellow>";
+            else                           preview = reward.getCosmeticFormat();
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Equipped: " + preview);
         }
         reopenTab(gui, player, tab);
     }
 
-    // ── helpers ───────────────────────────────────────────────────────
+    // ── helpers ──────────────────────────────────────────────
 
     private CosmeticsGUI.Tab resolveTab(String title) {
         if (title.equals(CosmeticsGUI.TITLE_TAGS))        return CosmeticsGUI.Tab.TAGS;
         if (title.equals(CosmeticsGUI.TITLE_NAME_COLORS)) return CosmeticsGUI.Tab.NAME_COLORS;
         if (title.equals(CosmeticsGUI.TITLE_CHAT_COLORS)) return CosmeticsGUI.Tab.CHAT_COLORS;
+        if (title.equals(CosmeticsGUI.TITLE_GLOW))        return CosmeticsGUI.Tab.GLOW;
         return null;
     }
 
@@ -134,6 +148,7 @@ public class CosmeticsGUIListener implements Listener {
             case TAGS        -> gui.openTags(p);
             case NAME_COLORS -> gui.openColors(p);
             case CHAT_COLORS -> gui.openChatColors(p);
+            case GLOW        -> gui.openGlow(p);
         }
     }
 
