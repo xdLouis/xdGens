@@ -1,7 +1,9 @@
 package de.louis.xdGens.listener;
 
+import de.louis.xdGens.gui.HoeUpgradeAmountGUI;
 import de.louis.xdGens.gui.HoeUpgradeGUI;
 import de.louis.xdGens.main.Main;
+import de.louis.xdGens.manager.HoeUpgradeManager;
 import de.louis.xdGens.util.HoeUtil;
 import de.louis.xdGens.util.MessageUtil;
 import de.louis.xdGens.util.NumberUtil;
@@ -20,32 +22,26 @@ import org.bukkit.inventory.ItemStack;
 
 public class HoeUpgradeListener implements Listener {
 
-    private final Main plugin;
+    private final Main         plugin;
     private final HoeUpgradeGUI gui;
 
     public HoeUpgradeListener(Main plugin) {
         this.plugin = plugin;
-        this.gui = new HoeUpgradeGUI(plugin);
+        this.gui    = new HoeUpgradeGUI(plugin);
     }
 
+    // ─── open main GUI on right-click with xd hoe ─────────────────────────
     @EventHandler(priority = EventPriority.HIGH)
     public void onRightClick(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) {
-            return;
-        }
-
+        if (event.getHand() != EquipmentSlot.HAND) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR
-                && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
-            return;
-        }
+                && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         ItemStack item = event.getItem();
-        if (!HoeUtil.isXdHoe(item)) {
-            return;
-        }
+        if (!HoeUtil.isXdHoe(item)) return;
 
-        Player player = event.getPlayer();
-        Block clicked = event.getClickedBlock();
+        Player player  = event.getPlayer();
+        Block  clicked = event.getClickedBlock();
 
         if (clicked != null
                 && clicked.getType() == Material.SMITHING_TABLE
@@ -55,127 +51,128 @@ public class HoeUpgradeListener implements Listener {
             return;
         }
 
-        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            event.setCancelled(true);
-        }
-
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) event.setCancelled(true);
         gui.open(player);
     }
 
+    // ─── inventory click handler ──────────────────────────────────────────
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-
+        if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (!title.contains("Hoe Upgrades")) {
+
+        // ── Main upgrade GUI ──────────────────────────────────────────────
+        if (title.contains("Hoe Upgrades")) {
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType().isAir()) return;
+
+            // Crop / XP / Token → open amount sub-menu
+            if (event.getSlot() == 11) {
+                new HoeUpgradeAmountGUI(plugin, "crop").open(player);
+            } else if (event.getSlot() == 13) {
+                new HoeUpgradeAmountGUI(plugin, "xp").open(player);
+            } else if (event.getSlot() == 15) {
+                new HoeUpgradeAmountGUI(plugin, "token").open(player);
+            }
             return;
         }
 
-        event.setCancelled(true);
+        // ── Amount sub-menu ───────────────────────────────────────────────
+        if (title.contains(HoeUpgradeAmountGUI.TITLE_PREFIX)) {
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType().isAir()) return;
 
-        ItemStack clicked = event.getCurrentItem();
-        if (clicked == null || clicked.getType().isAir()) {
+            int slot = event.getSlot();
+
+            // Back button
+            if (slot == HoeUpgradeAmountGUI.SLOT_BACK) {
+                gui.open(player);
+                return;
+            }
+
+            // Determine upgrade type from title
+            String type;
+            if      (title.contains("Crop"))  type = "crop";
+            else if (title.contains("XP"))    type = "xp";
+            else                              type = "token";
+
+            // Map slot → amount (MAX uses levelsLeft)
+            int amount;
+            if      (slot == HoeUpgradeAmountGUI.SLOT_PLUS1)  amount = 1;
+            else if (slot == HoeUpgradeAmountGUI.SLOT_PLUS10) amount = 10;
+            else if (slot == HoeUpgradeAmountGUI.SLOT_PLUS25) amount = 25;
+            else if (slot == HoeUpgradeAmountGUI.SLOT_PLUS50) amount = 50;
+            else if (slot == HoeUpgradeAmountGUI.SLOT_MAX) {
+                int max = switch (type) {
+                    case "crop"  -> HoeUpgradeManager.MAX_CROP_LEVEL;
+                    case "xp"   -> HoeUpgradeManager.MAX_XP_LEVEL;
+                    default     -> HoeUpgradeManager.MAX_TOKEN_LEVEL;
+                };
+                int current = switch (type) {
+                    case "crop"  -> plugin.getHoeUpgradeManager().getCropLevel(player);
+                    case "xp"   -> plugin.getHoeUpgradeManager().getXpLevel(player);
+                    default     -> plugin.getHoeUpgradeManager().getTokenLevel(player);
+                };
+                amount = max - current;
+            } else return;
+
+            if (amount <= 0) {
+                MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gold>Already maxed out!</gold>");
+                return;
+            }
+
+            handleBulkUpgrade(player, type, amount);
             return;
-        }
-
-        if (event.getSlot() == 11) {
-            handleCropUpgrade(player);
-        } else if (event.getSlot() == 13) {
-            handleXpUpgrade(player);
-        } else if (event.getSlot() == 15) {
-            handleTokenUpgrade(player);
         }
     }
 
-    private void handleCropUpgrade(Player player) {
-        int currentLevel = plugin.getHoeUpgradeManager().getCropLevel(player);
+    // ─── bulk upgrade logic ───────────────────────────────────────────────
 
-        if (currentLevel >= plugin.getHoeUpgradeManager().MAX_CROP_LEVEL) {
+    private void handleBulkUpgrade(Player player, String type, int requestedAmount) {
+        HoeUpgradeManager mgr = plugin.getHoeUpgradeManager();
+
+        int bought = switch (type) {
+            case "crop"  -> mgr.upgradeCropBulk(player,  requestedAmount);
+            case "xp"    -> mgr.upgradeXpBulk(player,    requestedAmount);
+            default      -> mgr.upgradeTokenBulk(player, requestedAmount);
+        };
+
+        if (bought <= 0) {
             MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <gold>Crop Harvest is already maxed out!</gold>");
+                    MessageUtil.PREFIX + " <red>Not enough Tokens for even one level!</red>");
+            // Refresh sub-menu so costs update
+            new HoeUpgradeAmountGUI(plugin, type).open(player);
             return;
         }
 
-        int nextLevel = currentLevel + 1;
-        long tokens = plugin.getCurrencyManager().getTokens(player);
-        long cost = plugin.getHoeUpgradeManager().getCropCost(nextLevel);
+        int newLevel = switch (type) {
+            case "crop"  -> mgr.getCropLevel(player);
+            case "xp"    -> mgr.getXpLevel(player);
+            default      -> mgr.getTokenLevel(player);
+        };
 
-        if (tokens < cost) {
-            long missing = cost - tokens;
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <red>Not enough Tokens! You need "
-                            + NumberUtil.format(missing) + " more.</red>");
-            return;
-        }
+        String gradient = switch (type) {
+            case "crop"  -> "<gradient:#f6d365:#fda085>";
+            case "xp"    -> "<gradient:#7afcff:#00c2ff>";
+            default      -> "<gradient:#ffd86f:#fc6262>";
+        };
+        String upgradeName = switch (type) {
+            case "crop"  -> "Crop Harvest";
+            case "xp"    -> "XP Boost";
+            default      -> "Token Boost";
+        };
 
-        if (plugin.getHoeUpgradeManager().upgradeCrop(player)) {
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <gradient:#f6d365:#fda085>Crop Harvest upgraded to Level "
-                            + plugin.getHoeUpgradeManager().getCropLevel(player)
-                            + "!</gradient> <gray>(-" + NumberUtil.format(cost) + " Tokens)</gray>");
-            gui.open(player);
-        }
-    }
+        String suffix = bought < requestedAmount
+                ? " <yellow>(only " + bought + " level" + (bought == 1 ? "" : "s") + " – out of Tokens)</yellow>"
+                : "";
 
-    private void handleXpUpgrade(Player player) {
-        int currentLevel = plugin.getHoeUpgradeManager().getXpLevel(player);
+        MessageUtil.sendRaw(player,
+                MessageUtil.PREFIX + " " + gradient + upgradeName + " → Level " + newLevel + "!</gradient>"
+                + " <gray>(+" + bought + " level" + (bought == 1 ? "" : "s") + ")</gray>" + suffix);
 
-        if (currentLevel >= plugin.getHoeUpgradeManager().MAX_XP_LEVEL) {
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <gold>XP Boost is already maxed out!</gold>");
-            return;
-        }
-
-        int nextLevel = currentLevel + 1;
-        long tokens = plugin.getCurrencyManager().getTokens(player);
-        long cost = plugin.getHoeUpgradeManager().getXpCost(nextLevel);
-
-        if (tokens < cost) {
-            long missing = cost - tokens;
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <red>Not enough Tokens! You need "
-                            + NumberUtil.format(missing) + " more.</red>");
-            return;
-        }
-
-        if (plugin.getHoeUpgradeManager().upgradeXp(player)) {
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <gradient:#7afcff:#00c2ff>XP Boost upgraded to Level "
-                            + plugin.getHoeUpgradeManager().getXpLevel(player)
-                            + "!</gradient> <gray>(-" + NumberUtil.format(cost) + " Tokens)</gray>");
-            gui.open(player);
-        }
-    }
-
-    private void handleTokenUpgrade(Player player) {
-        int currentLevel = plugin.getHoeUpgradeManager().getTokenLevel(player);
-
-        if (currentLevel >= plugin.getHoeUpgradeManager().MAX_TOKEN_LEVEL) {
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <gold>Token Boost is already maxed out!</gold>");
-            return;
-        }
-
-        int nextLevel = currentLevel + 1;
-        long tokens = plugin.getCurrencyManager().getTokens(player);
-        long cost = plugin.getHoeUpgradeManager().getTokenCost(nextLevel);
-
-        if (tokens < cost) {
-            long missing = cost - tokens;
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <red>Not enough Tokens! You need "
-                            + NumberUtil.format(missing) + " more.</red>");
-            return;
-        }
-
-        if (plugin.getHoeUpgradeManager().upgradeToken(player)) {
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <gradient:#ffd86f:#fc6262>Token Boost upgraded to Level "
-                            + plugin.getHoeUpgradeManager().getTokenLevel(player)
-                            + "!</gradient> <gray>(-" + NumberUtil.format(cost) + " Tokens)</gray>");
-            gui.open(player);
-        }
+        // Re-open sub-menu with updated numbers
+        new HoeUpgradeAmountGUI(plugin, type).open(player);
     }
 }
