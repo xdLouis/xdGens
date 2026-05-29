@@ -2,6 +2,7 @@ package de.louis.xdGens.main;
 
 import de.louis.xdGens.command.*;
 import de.louis.xdGens.field.FieldManager;
+import de.louis.xdGens.listener.CosmeticVoucherListener;
 import de.louis.xdGens.listener.CrateListener;
 import de.louis.xdGens.listener.DropListener;
 import de.louis.xdGens.listener.FieldListener;
@@ -37,15 +38,14 @@ public final class Main extends JavaPlugin {
     private ProgressionManager progressionManager;
     private HoeUpgradeManager hoeUpgradeManager;
     private BackpackManager backpackManager;
-    private CrateManager crateManager;
     private VirtualKeyManager virtualKeyManager;
     private PlayerCosmeticManager playerCosmeticManager;
+    private CrateManager crateManager;
     private LobbyProtectionListener lobbyProtectionListener;
 
     @Override
     public void onEnable() {
         instance = this;
-
         saveDefaultConfig();
 
         this.currencyManager       = new CurrencyManager(this);
@@ -70,6 +70,7 @@ public final class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HoeUpgradeListener(this), this);
         getServer().getPluginManager().registerEvents(new ShopListener(this), this);
         getServer().getPluginManager().registerEvents(new CrateListener(this), this);
+        getServer().getPluginManager().registerEvents(new CosmeticVoucherListener(this), this);
         getServer().getPluginManager().registerEvents(lobbyProtectionListener, this);
 
         lobbyProtectionListener.applyToAllWorlds();
@@ -82,40 +83,21 @@ public final class Main extends JavaPlugin {
                 }), 0L, 200L);
 
         if (getCommand("testfield") != null) {
-            TestFieldCommand testFieldCommand = new TestFieldCommand();
-            getCommand("testfield").setExecutor(testFieldCommand);
-            getCommand("testfield").setTabCompleter(testFieldCommand);
+            TestFieldCommand cmd = new TestFieldCommand();
+            getCommand("testfield").setExecutor(cmd);
+            getCommand("testfield").setTabCompleter(cmd);
         }
-
-        if (getCommand("workstation") != null) {
-            getCommand("workstation").setExecutor(new WorkstationCommand(this));
-        }
-
+        if (getCommand("workstation") != null) getCommand("workstation").setExecutor(new WorkstationCommand(this));
         if (getCommand("xdadmin") != null) {
-            XdAdminCommand xdAdminCommand = new XdAdminCommand(this);
-            getCommand("xdadmin").setExecutor(xdAdminCommand);
-            getCommand("xdadmin").setTabCompleter(xdAdminCommand);
+            XdAdminCommand xdAdmin = new XdAdminCommand(this);
+            getCommand("xdadmin").setExecutor(xdAdmin);
+            getCommand("xdadmin").setTabCompleter(xdAdmin);
         }
-
-        if (getCommand("prestige") != null) {
-            getCommand("prestige").setExecutor(new PrestigeCommand(this));
-        }
-
-        if (getCommand("shop") != null) {
-            getCommand("shop").setExecutor(new ShopCommand(this));
-        }
-
-        if (getCommand("sell") != null) {
-            getCommand("sell").setExecutor(new SellCommand(this));
-        }
-
-        if (getCommand("diamond") != null) {
-            getCommand("diamond").setExecutor(new DiamondCommand());
-        }
-
-        if (getCommand("crates") != null) {
-            getCommand("crates").setExecutor(new CratesCommand(this));
-        }
+        if (getCommand("prestige") != null) getCommand("prestige").setExecutor(new PrestigeCommand(this));
+        if (getCommand("shop")     != null) getCommand("shop").setExecutor(new ShopCommand(this));
+        if (getCommand("sell")     != null) getCommand("sell").setExecutor(new SellCommand(this));
+        if (getCommand("diamond")  != null) getCommand("diamond").setExecutor(new DiamondCommand());
+        if (getCommand("crates")   != null) getCommand("crates").setExecutor(new CratesCommand(this));
 
         getLogger().info(MessageUtil.strip(MessageUtil.PREFIX + " <green>Plugin enabled.</green>"));
     }
@@ -133,17 +115,17 @@ public final class Main extends JavaPlugin {
         getLogger().info("xdGens disabled.");
     }
 
-    public static Main get()                                      { return instance; }
-    public FieldManager getFieldManager()                         { return fieldManager; }
-    public CurrencyManager getCurrencyManager()                   { return currencyManager; }
-    public de.louis.xdGens.hologram.HologramManager getHologramManager() { return hologramManager; }
-    public WorkstationManager getWorkstationManager()             { return workstationManager; }
-    public ActionBarManager getActionBarManager()                 { return actionBarManager; }
-    public ScoreboardManager getScoreboardManager()               { return scoreboardManager; }
-    public ProgressionManager getProgressionManager()             { return progressionManager; }
-    public HoeUpgradeManager getHoeUpgradeManager()               { return hoeUpgradeManager; }
-    public BackpackManager getBackpackManager()                   { return backpackManager; }
-    public CrateManager getCrateManager()                         { return crateManager; }
-    public VirtualKeyManager getVirtualKeyManager()               { return virtualKeyManager; }
-    public PlayerCosmeticManager getPlayerCosmeticManager()       { return playerCosmeticManager; }
+    public static Main get()                                               { return instance; }
+    public FieldManager getFieldManager()                                  { return fieldManager; }
+    public CurrencyManager getCurrencyManager()                            { return currencyManager; }
+    public de.louis.xdGens.hologram.HologramManager getHologramManager()  { return hologramManager; }
+    public WorkstationManager getWorkstationManager()                      { return workstationManager; }
+    public ActionBarManager getActionBarManager()                          { return actionBarManager; }
+    public ScoreboardManager getScoreboardManager()                        { return scoreboardManager; }
+    public ProgressionManager getProgressionManager()                      { return progressionManager; }
+    public HoeUpgradeManager getHoeUpgradeManager()                        { return hoeUpgradeManager; }
+    public BackpackManager getBackpackManager()                            { return backpackManager; }
+    public CrateManager getCrateManager()                                  { return crateManager; }
+    public VirtualKeyManager getVirtualKeyManager()                        { return virtualKeyManager; }
+    public PlayerCosmeticManager getPlayerCosmeticManager()                { return playerCosmeticManager; }
 }
