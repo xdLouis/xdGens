@@ -18,14 +18,14 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.*;
 
 /**
- * Crate Preview GUI  —  6 Reihen (54 Slots)
+ * Crate Preview GUI  —  6 rows (54 slots)
  *
- * Tier-Regeln pro Crate:
- *   COMMON     → nur Tier 0 (Common)
- *   UNCOMMON   → Tier 0–1 (Common + Rare)
- *   RARE       → Tier 0–2 (Common + Rare + Very Rare)
- *   EPIC       → Tier 1–2 (Rare + Very Rare)
- *   LEGENDARY  → NUR Tier 3 (Legendary) — kein Common/Rare/VeryRare!
+ * Tier rules per crate:
+ *   COMMON     → Tier 0 only
+ *   UNCOMMON   → Tier 0–1
+ *   RARE       → Tier 0–2
+ *   EPIC       → Tier 1–2
+ *   LEGENDARY  → Tier 3 only
  */
 public class CratePreviewGUI {
 
@@ -46,7 +46,7 @@ public class CratePreviewGUI {
         this.crateType = crateType;
     }
 
-    // ── open ──────────────────────────────────────────────────────
+    // ── open ───────────────────────────────────────────────────
 
     public void open(Player player) {
         open(player, playerPage.getOrDefault(player.getUniqueId(), 0));
@@ -66,41 +66,30 @@ public class CratePreviewGUI {
         ItemStack bg = bgPane();
         for (int i = 0; i < 54; i++) inv.setItem(i, bg.clone());
 
-        // Header
         inv.setItem(0, buildCrateHeader());
         inv.setItem(1, buildPouchInfo());
         if (totalPages > 1) inv.setItem(4, buildPageInfo(page, totalPages));
         inv.setItem(SLOT_BACK, buildBack());
 
-        // Content
         int from = page * CONTENT_SIZE;
         int to   = Math.min(from + CONTENT_SIZE, content.size());
         for (int i = from; i < to; i++) {
             inv.setItem(CONTENT_START + (i - from), content.get(i));
         }
 
-        // Navigation
-        if (page > 0)              inv.setItem(SLOT_PREV, navArrow("<yellow>\u2190 Zurück",    page,     totalPages));
-        if (page < totalPages - 1) inv.setItem(SLOT_NEXT, navArrow("<yellow>Weiter \u2192", page + 2, totalPages));
+        if (page > 0)              inv.setItem(SLOT_PREV, navArrow("<yellow>\u2190 Previous", page,     totalPages));
+        if (page < totalPages - 1) inv.setItem(SLOT_NEXT, navArrow("<yellow>Next \u2192",     page + 2, totalPages));
 
         player.openInventory(inv);
     }
 
-    // ── Content aufbauen ───────────────────────────────────────────
+    // ── Content ──────────────────────────────────────────────────
 
     private List<ItemStack> buildContent() {
         List<ItemStack> list = new ArrayList<>();
         int minTier = minTierForCrate();
         int maxTier = maxTierForCrate();
 
-        CrateReward.Type[] order = {
-            CrateReward.Type.TAG,
-            CrateReward.Type.NAME_COLOR,
-            CrateReward.Type.CHAT_COLOR,
-            CrateReward.Type.GLOW
-        };
-
-        // Gesamtgewicht aller zugelassenen Cosmetics
         double totalWeight = 0;
         for (CrateReward r : CrateReward.values()) {
             if (r.getType() != CrateReward.Type.POUCH
@@ -109,29 +98,27 @@ public class CratePreviewGUI {
             }
         }
         double dropChance = baseDrop();
+        final double tw = totalWeight;
 
-        for (CrateReward.Type cat : order) {
-            List<CrateReward> pool = new ArrayList<>();
-            for (CrateReward r : CrateReward.values()) {
-                if (r.getType() == cat && r.getTier() >= minTier && r.getTier() <= maxTier)
-                    pool.add(r);
+        List<CrateReward> pool = new ArrayList<>();
+        for (CrateReward r : CrateReward.values()) {
+            if (r.getType() != CrateReward.Type.POUCH
+                    && r.getTier() >= minTier && r.getTier() <= maxTier) {
+                pool.add(r);
             }
-            if (pool.isEmpty()) continue;
+        }
+        pool.sort(Comparator.comparingInt(CrateReward::getTier)
+                            .thenComparingInt(r -> r.getType().ordinal())
+                            .thenComparingDouble(r -> -r.getWeight()));
 
-            pool.sort(Comparator.comparingInt(CrateReward::getTier)
-                                .thenComparingDouble(r -> -r.getWeight()));
-
-            list.add(categoryDivider(cat));
-            final double tw = totalWeight;
-            for (CrateReward r : pool) {
-                double chance = dropChance * (r.getWeight() / tw) * 100.0;
-                list.add(buildRewardItem(r, chance));
-            }
+        for (CrateReward r : pool) {
+            double chance = dropChance * (r.getWeight() / tw) * 100.0;
+            list.add(buildRewardItem(r, chance));
         }
         return list;
     }
 
-    // ── Reward-Item ────────────────────────────────────────────────
+    // ── Reward item ──────────────────────────────────────────────
 
     private ItemStack buildRewardItem(CrateReward reward, double chancePercent) {
         ItemStack item = new ItemStack(reward.getIcon());
@@ -143,17 +130,18 @@ public class CratePreviewGUI {
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
+        lore.add(MessageUtil.parse("<gray>Type: <white>" + typeLabel(reward.getType()) + "</white>"));
         lore.add(MessageUtil.parse("<gray>Rarity: " + reward.tierLabel()));
         lore.add(MessageUtil.parse("<gray>Chance: <gold>" + formatChance(chancePercent) + "</gold>"));
         lore.add(Component.empty());
 
-        String preview = reward.getCosmeticFormat()
-                .replace("{name}", "Steve")
-                .replace("{msg}",  "Hallo!");
         if (reward.isGlow()) {
-            lore.add(MessageUtil.parse("<gray>Glow-Farbe: <white>" + reward.getCosmeticFormat() + "</white>"));
+            lore.add(MessageUtil.parse("<gray>Glow color: <white>" + reward.getCosmeticFormat() + "</white>"));
         } else {
-            lore.add(MessageUtil.parse("<gray>Vorschau: " + preview));
+            String preview = reward.getCosmeticFormat()
+                    .replace("{name}", "Steve")
+                    .replace("{msg}",  "Hello!");
+            lore.add(MessageUtil.parse("<gray>Preview: " + preview));
         }
 
         meta.lore(lore);
@@ -166,7 +154,7 @@ public class CratePreviewGUI {
         return item;
     }
 
-    // ── Header-Items ───────────────────────────────────────────────
+    // ── Header items ─────────────────────────────────────────────
 
     private ItemStack buildCrateHeader() {
         ItemStack item = new ItemStack(crateType.getIcon());
@@ -176,8 +164,8 @@ public class CratePreviewGUI {
         ));
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
-        lore.add(MessageUtil.parse("<gray>Cosmetic-Drop: <gold>" + String.format("%.1f", baseDrop() * 100.0) + "%</gold> pro Öffnung"));
-        lore.add(MessageUtil.parse("<gray>Rarity-Range: " + tierRangeLabel()));
+        lore.add(MessageUtil.parse("<gray>Cosmetic drop: <gold>" + String.format("%.1f", baseDrop() * 100.0) + "%</gold> per opening"));
+        lore.add(MessageUtil.parse("<gray>Rarity range: " + tierRangeLabel()));
         meta.lore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
@@ -187,11 +175,11 @@ public class CratePreviewGUI {
     private ItemStack buildPouchInfo() {
         ItemStack item = new ItemStack(Material.EMERALD);
         ItemMeta  meta = item.getItemMeta();
-        meta.displayName(MessageUtil.parse("<white><bold>Pouch-Tiers</bold></white>"));
+        meta.displayName(MessageUtil.parse("<white><bold>Pouch Tiers</bold></white>"));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
-        lore.add(MessageUtil.parse("<gray>Beim Öffnen erhältst du immer Pouches."));
+        lore.add(MessageUtil.parse("<gray>Every opening grants pouches."));
         lore.add(Component.empty());
         for (PouchTier tier : tiersForCrate()) {
             lore.add(MessageUtil.parse("  " + tier.getDisplayName() + "  <dark_gray>x" + tier.getMultiplier()));
@@ -207,8 +195,8 @@ public class CratePreviewGUI {
     private ItemStack buildBack() {
         ItemStack item = new ItemStack(Material.ARROW);
         ItemMeta  meta = item.getItemMeta();
-        meta.displayName(MessageUtil.parse("<red>\u2190 Zurück"));
-        meta.lore(List.of(MessageUtil.parse("<dark_gray>Zurück zum Crates-Menü")));
+        meta.displayName(MessageUtil.parse("<red>\u2190 Back"));
+        meta.lore(List.of(MessageUtil.parse("<dark_gray>Back to Crates menu")));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
@@ -217,7 +205,7 @@ public class CratePreviewGUI {
     private ItemStack buildPageInfo(int page, int totalPages) {
         ItemStack item = new ItemStack(Material.PAPER);
         ItemMeta  meta = item.getItemMeta();
-        meta.displayName(MessageUtil.parse("<gray>Seite <white>" + (page + 1) + "</white> / " + totalPages));
+        meta.displayName(MessageUtil.parse("<gray>Page <white>" + (page + 1) + "</white> / " + totalPages));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
@@ -227,39 +215,13 @@ public class CratePreviewGUI {
         ItemStack item = new ItemStack(Material.ARROW);
         ItemMeta  meta = item.getItemMeta();
         meta.displayName(MessageUtil.parse(label));
-        meta.lore(List.of(MessageUtil.parse("<gray>Seite " + targetPage + " / " + totalPages)));
+        meta.lore(List.of(MessageUtil.parse("<gray>Page " + targetPage + " / " + totalPages)));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
     }
 
-    // ── Kategorie-Trenner ────────────────────────────────────────────
-
-    private ItemStack categoryDivider(CrateReward.Type cat) {
-        String label = switch (cat) {
-            case TAG        -> "<white><bold>\uD83C\uDFF7 Tags</bold></white>";
-            case NAME_COLOR -> "<white><bold>\uD83C\uDFA8 Name-Farben</bold></white>";
-            case CHAT_COLOR -> "<white><bold>\uD83D\uDCAC Chat-Farben</bold></white>";
-            case GLOW       -> "<white><bold>\u2728 Glow</bold></white>";
-            default         -> "<white><bold>Rewards</bold></white>";
-        };
-        Material mat = switch (cat) {
-            case TAG        -> Material.NAME_TAG;
-            case NAME_COLOR -> Material.CYAN_DYE;
-            case CHAT_COLOR -> Material.PURPLE_DYE;
-            case GLOW       -> Material.GLOWSTONE_DUST;
-            default         -> Material.PAPER;
-        };
-        ItemStack item = new ItemStack(mat);
-        ItemMeta  meta = item.getItemMeta();
-        meta.displayName(MessageUtil.parse(label));
-        meta.lore(List.of(MessageUtil.parse("<dark_gray>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")));
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    // ── Background ───────────────────────────────────────────────────
+    // ── Background ───────────────────────────────────────────────
 
     private ItemStack bgPane() {
         ItemStack p = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
@@ -269,12 +231,18 @@ public class CratePreviewGUI {
         return p;
     }
 
-    // ── Hilfsmethoden ───────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────
 
-    /**
-     * Minimaler Tier für die Crate.
-     * LEGENDARY startet bei Tier 3 — nur Legendaries!
-     */
+    private String typeLabel(CrateReward.Type type) {
+        return switch (type) {
+            case TAG        -> "Tag";
+            case NAME_COLOR -> "Name Color";
+            case CHAT_COLOR -> "Chat Color";
+            case GLOW       -> "Glow";
+            default         -> "Cosmetic";
+        };
+    }
+
     private int minTierForCrate() {
         return switch (crateType) {
             case EPIC, RARE, UNCOMMON, COMMON -> CrateReward.TIER_COMMON;
@@ -282,14 +250,6 @@ public class CratePreviewGUI {
         };
     }
 
-    /**
-     * Maximaler Tier für die Crate.
-     *   COMMON     → nur Tier 0
-     *   UNCOMMON   → bis Tier 1
-     *   RARE       → bis Tier 2
-     *   EPIC       → bis Tier 2
-     *   LEGENDARY  → nur Tier 3 (min == max)
-     */
     private int maxTierForCrate() {
         return switch (crateType) {
             case COMMON    -> CrateReward.TIER_COMMON;
@@ -342,8 +302,6 @@ public class CratePreviewGUI {
         if (pct < 0.1)   return String.format("%.3f%%", pct);
         return String.format("%.2f%%", pct);
     }
-
-    // ── Statische Helfer für den Listener ────────────────────────────
 
     public static CrateType resolveFromTitle(String plainTitle) {
         for (CrateType t : CrateType.values()) {
