@@ -15,11 +15,17 @@ import java.util.UUID;
 
 public class ProgressionManager {
 
+    // ── Prestige level thresholds ───────────────────────────────────────
+    // requiredLevel(p) = BASE_PRESTIGE_LEVEL + p * PRESTIGE_LEVEL_STEP
+    // P0→50, P1→52, P10→70, P50→150, P119→288
     private static final int BASE_PRESTIGE_LEVEL = 50;
-    private static final int PRESTIGE_LEVEL_STEP = 10;
+    private static final int PRESTIGE_LEVEL_STEP = 2;   // was 10 — reduced so P119 needs ~288 not 1240
 
-    private static final double BASE_PRESTIGE_COST = 250000.0;
-    private static final double PRESTIGE_COST_STEP = 150000.0;
+    // ── Prestige money cost ─────────────────────────────────────────────
+    // cost(p) = BASE + p * STEP
+    // P0→5k, P10→25k, P50→105k, P119→243k  (total 120 prestiges ≈ 14.8M)
+    private static final double BASE_PRESTIGE_COST = 5_000.0;   // was 250_000
+    private static final double PRESTIGE_COST_STEP = 2_000.0;   // was 150_000
 
     /** +10% tokens per prestige level (e.g. Prestige 3 → ×1.30) */
     private static final double PRESTIGE_TOKEN_BONUS_PER_LEVEL = 0.10;
@@ -247,14 +253,28 @@ public class ProgressionManager {
         return getRequiredXp(getLevel(player), getPrestige(player));
     }
 
+    /**
+     * XP required to reach the next level.
+     *
+     * Formula: 500 + (level-1)*50 + prestige*20
+     * Examples:
+     *   P0  L1  → 500 XP       P0  L50 → 2,975 XP
+     *   P10 L1  → 700 XP       P50 L1  → 1,500 XP
+     *   P119 L288 → ~20,310 XP
+     *
+     * Rebalanced from the old formula (100 + (level-1)*25 + prestige*40)
+     * to support the 12h → Prestige 120 target.
+     * Can be re-tuned once skill bonuses are added.
+     */
     private int getRequiredXp(int level, int prestige) {
         int maxLevel = getRequiredLevelForPrestige(prestige);
 
         if (level >= maxLevel) {
-            return 1000 + (prestige * 250);
+            // XP shown at max level (cosmetic — player can't level further until prestige)
+            return 500 + ((maxLevel - 1) * 50) + (prestige * 20);
         }
 
-        return 100 + ((level - 1) * 25) + (prestige * 40);
+        return 500 + ((level - 1) * 50) + (prestige * 20);
     }
 
     public int getMaxLevel() {
