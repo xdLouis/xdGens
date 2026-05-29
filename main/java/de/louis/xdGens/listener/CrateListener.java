@@ -1,6 +1,5 @@
 package de.louis.xdGens.listener;
 
-import de.louis.xdGens.crate.CrateReward;
 import de.louis.xdGens.crate.CrateType;
 import de.louis.xdGens.crate.PouchItem;
 import de.louis.xdGens.crate.PouchType;
@@ -30,8 +29,6 @@ public class CrateListener implements Listener {
         this.plugin = plugin;
     }
 
-    // ── GUI clicks ───────────────────────────────────────────────────────
-
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -41,20 +38,15 @@ public class CrateListener implements Listener {
         event.setCancelled(true);
         int slot = event.getSlot();
 
-        // resolve which crate was clicked
         CrateType crateType = resolveBySlot(slot);
         if (crateType == null) return;
 
-        boolean openAll = event.getClick() == ClickType.RIGHT;
-
-        if (openAll) {
+        if (event.getClick() == ClickType.RIGHT) {
             handleOpenAll(player, crateType);
         } else {
             handleOpenOne(player, crateType);
         }
     }
-
-    // ── pouch right-click use ────────────────────────────────────────────
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPouchUse(PlayerInteractEvent event) {
@@ -76,14 +68,14 @@ public class CrateListener implements Listener {
             case TOKENS -> plugin.getCurrencyManager().addTokens(player, (int) value);
             case XP     -> plugin.getProgressionManager().addXp(player, value);
         }
-        consumeOne(item);
+        if (item.getAmount() <= 1) player.getInventory().setItemInMainHand(null);
+        else item.setAmount(item.getAmount() - 1);
+
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.1f);
         MessageUtil.sendRaw(player, MessageUtil.PREFIX
                 + " <green>Opened pouch:</green> <white>+" + NumberUtil.format(value)
                 + " " + readable(type) + "</white>");
     }
-
-    // ── handlers ─────────────────────────────────────────────────────────
 
     private void handleOpenOne(Player player, CrateType type) {
         if (!plugin.getVirtualKeyManager().consumeKey(player, type)) {
@@ -94,10 +86,11 @@ public class CrateListener implements Listener {
         CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
         giveRewards(player, result);
         playCrateSound(player);
+        String voucherNote = result.hasVoucher() ? " " + result.rolledCosmetic().tierLabel()
+                + " <white>" + result.rolledCosmetic().getDisplayName() + "</white> voucher!" : "";
         MessageUtil.sendRaw(player, MessageUtil.PREFIX + " "
                 + type.getGradient() + type.getDisplayName() + " Crate opened!</gradient>"
-                + " <gray>You received 3 pouches.</gray>"
-                + buildCosmeticSuffix(result));
+                + " <gray>3 pouches received.</gray>" + voucherNote);
         new CratesGUI(plugin).open(player);
     }
 
@@ -108,36 +101,30 @@ public class CrateListener implements Listener {
                     + " <red>You don't have any " + type.getDisplayName() + " keys.</red>");
             return;
         }
-        int newCosmeticsTotal = 0;
+        int vouchers = 0;
         for (int i = 0; i < count; i++) {
             CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
             giveRewards(player, result);
-            if (result.hasNewCosmetic()) newCosmeticsTotal++;
+            if (result.hasVoucher()) vouchers++;
         }
         playCrateSound(player);
-        String cosmeticNote = newCosmeticsTotal > 0
-                ? " <gradient:#c471f5:#fa71cd>+" + newCosmeticsTotal + " new cosmetic" + (newCosmeticsTotal > 1 ? "s" : "") + "!</gradient>"
+        String voucherNote = vouchers > 0
+                ? " <gradient:#c471f5:#fa71cd>+" + vouchers + " voucher" + (vouchers > 1 ? "s" : "") + "!</gradient>"
                 : "";
         MessageUtil.sendRaw(player, MessageUtil.PREFIX + " "
                 + type.getGradient() + "Opened " + count + "x " + type.getDisplayName() + " Crate!</gradient>"
-                + " <gray>You received " + (count * 3) + " pouches.</gray>" + cosmeticNote);
+                + " <gray>" + (count * 3) + " pouches received.</gray>" + voucherNote);
         new CratesGUI(plugin).open(player);
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────
-
     private void giveRewards(Player player, CrateManager.CrateOpenResult result) {
-        result.pouches().forEach(p -> {
-            var leftovers = player.getInventory().addItem(p);
-            leftovers.values().forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
-        });
+        result.pouches().forEach(p -> drop(player, p));
+        if (result.hasVoucher()) drop(player, result.voucherItem());
     }
 
-    private String buildCosmeticSuffix(CrateManager.CrateOpenResult result) {
-        if (!result.hasNewCosmetic()) return "";
-        CrateReward c = result.newCosmetic();
-        return " " + c.tierLabel() + " cosmetic: " + c.getCosmeticFormat()
-                .replace("{name}", c.getDisplayName());
+    private void drop(Player player, ItemStack item) {
+        var leftovers = player.getInventory().addItem(item);
+        leftovers.values().forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
     }
 
     private void playCrateSound(Player player) {
@@ -153,15 +140,7 @@ public class CrateListener implements Listener {
         return null;
     }
 
-    private void consumeOne(ItemStack item) {
-        item.setAmount(item.getAmount() - 1);
-    }
-
     private String readable(PouchType type) {
-        return switch (type) {
-            case MONEY  -> "Money";
-            case XP     -> "XP";
-            case TOKENS -> "Tokens";
-        };
+        return switch (type) { case MONEY -> "Money"; case XP -> "XP"; case TOKENS -> "Tokens"; };
     }
 }
