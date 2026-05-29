@@ -41,53 +41,38 @@ public class CrateListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
-        // ── Crates Hauptmenü ─────────────────────────────────────────────
         if (title.equals(CRATES_TITLE)) {
             event.setCancelled(true);
-
             CrateType crate = resolveBySlot(event.getSlot(), CratesGUI.CRATE_SLOTS);
             if (crate == null) return;
-
             ClickType click = event.getClick();
-
             if (click == ClickType.RIGHT) {
-                // Rewards & Odds Preview
                 CratePreviewGUI.clearState(player.getUniqueId());
                 new CratePreviewGUI(plugin, crate).open(player);
-
             } else if (click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT) {
-                // Alle Keys öffnen
                 handleOpenAll(player, crate);
-
             } else if (click == ClickType.LEFT || click == ClickType.MIDDLE) {
-                // 1 Key öffnen
                 handleOpenOne(player, crate);
             }
             return;
         }
 
-        // ── Preview GUI ──────────────────────────────────────────────
         if (title.contains(" Crate") && !title.contains("Crates")) {
             event.setCancelled(true);
             CrateType previewType = CratePreviewGUI.resolveFromTitle(title);
             if (previewType == null) return;
-
             CratePreviewGUI gui     = new CratePreviewGUI(plugin, previewType);
             int             curPage = CratePreviewGUI.playerPage.getOrDefault(player.getUniqueId(), 0);
-
             switch (event.getSlot()) {
-                case CratePreviewGUI.SLOT_BACK -> {
-                    CratePreviewGUI.clearState(player.getUniqueId());
-                    new CratesGUI(plugin).open(player);
-                }
+                case CratePreviewGUI.SLOT_BACK -> { CratePreviewGUI.clearState(player.getUniqueId()); new CratesGUI(plugin).open(player); }
                 case CratePreviewGUI.SLOT_PREV -> gui.open(player, curPage - 1);
                 case CratePreviewGUI.SLOT_NEXT -> gui.open(player, curPage + 1);
-                default -> { /* view only */ }
+                default -> {}
             }
         }
     }
 
-    // ── Pouch Rechtsklick ───────────────────────────────────────────────
+    // ── Pouch right-click ────────────────────────────────────────────
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPouchUse(PlayerInteractEvent event) {
@@ -111,16 +96,16 @@ public class CrateListener implements Listener {
         else item.setAmount(item.getAmount() - 1);
 
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.1f);
-        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Pouch geöffnet:</green> <white>+"
+        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Pouch opened:</green> <white>+"
                 + NumberUtil.format(value) + " " + readable(type) + "</white>");
     }
 
-    // ── Open One ───────────────────────────────────────────────────────
+    // ── Open one ───────────────────────────────────────────────────
 
     private void handleOpenOne(Player player, CrateType type) {
         if (!plugin.getVirtualKeyManager().consumeKey(player, type)) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>Du hast keinen " + type.getDisplayName() + " Key.</red>");
+                    + " <red>You don't have a " + type.getDisplayName() + " Key.</red>");
             return;
         }
         CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
@@ -131,13 +116,13 @@ public class CrateListener implements Listener {
         new CratesGUI(plugin).open(player);
     }
 
-    // ── Open All ───────────────────────────────────────────────────────
+    // ── Open all ───────────────────────────────────────────────────
 
     private void handleOpenAll(Player player, CrateType type) {
         int total = plugin.getVirtualKeyManager().getKeys(player, type);
         if (total <= 0) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>Du hast keine " + type.getDisplayName() + " Keys.</red>");
+                    + " <red>You don't have any " + type.getDisplayName() + " Keys.</red>");
             return;
         }
 
@@ -166,8 +151,8 @@ public class CrateListener implements Listener {
         StringBuilder sb = new StringBuilder();
         sb.append(MessageUtil.PREFIX).append(" ")
           .append(type.getGradient()).append("<bold>").append(type.getDisplayName()).append(" Crate</bold></gradient>")
-          .append(" <gray>\u00d7 ").append(total).append(" geöffnet</gray>");
-        sb.append("\n<dark_gray>\u250c\u2500 Pouches eingelöst");
+          .append(" <gray>\u00d7 ").append(total).append(" opened</gray>");
+        sb.append("\n<dark_gray>\u250c\u2500 Pouches redeemed");
         if (totalMoney  > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalMoney)).append("</white> <gray>Money</gray>");
         if (totalXp     > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalXp)).append("</white> <gray>XP</gray>");
         if (totalTokens > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalTokens)).append("</white> <gray>Tokens</gray>");
@@ -175,13 +160,13 @@ public class CrateListener implements Listener {
             sb.append("\n<dark_gray>\u2502</dark_gray> <gray>Tiers: ");
             tierCounts.forEach((tier, cnt) -> sb.append(tier.getDisplayName()).append(" <dark_gray>x").append(cnt).append("</dark_gray>  "));
         }
-        if (vouchers > 0) sb.append("\n<dark_gray>\u251c\u2500 Cosmetic Vouchers: <white>").append(vouchers).append("</white> <gray>(im Inventar)</gray>");
+        if (vouchers > 0) sb.append("\n<dark_gray>\u251c\u2500 Cosmetic Vouchers: <white>").append(vouchers).append("</white> <gray>(in inventory)</gray>");
         sb.append("\n<dark_gray>\u2514\u2500</dark_gray>");
         MessageUtil.sendRaw(player, sb.toString());
         new CratesGUI(plugin).open(player);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────────────────
 
     private void sendOpenMessage(Player player, CrateType type, CrateManager.CrateOpenResult result) {
         StringBuilder sb = new StringBuilder();
