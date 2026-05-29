@@ -20,14 +20,14 @@ public class TntBombSession {
     private static final double BASE_TOKEN_REWARD = 25.0;
 
     public static void trigger(Main plugin, Player player, int tntLevel) {
+        MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 TNT Bomber activated!</gradient>");
+
         for (int i = 0; i < BOMB_COUNT; i++) {
             final int bombIndex = i;
             Bukkit.getScheduler().runTaskLater(plugin, () ->
                     dropBomb(plugin, player, tntLevel), (long) bombIndex * BOMB_DELAY_TICKS);
         }
-        // Trigger-feedback so the player always knows it fired
-        player.sendActionBar(MessageUtil.parse(
-                "<gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 TNT Bomber triggered!</gradient>"));
     }
 
     private static void dropBomb(Main plugin, Player player, int tntLevel) {
@@ -60,7 +60,6 @@ public class TntBombSession {
                 Location trailLoc = new Location(world, bx + 0.5, currentY[0], bz + 0.5);
                 world.spawnParticle(Particle.SMOKE, trailLoc, 6, 0.1, 0.1, 0.1, 0.01);
                 world.spawnParticle(Particle.FLAME, trailLoc, 3, 0.1, 0.1, 0.1, 0.02);
-                // Audible tick so player notices it falling
                 if (ticks % 6 == 0) {
                     world.playSound(trailLoc, Sound.BLOCK_NOTE_BLOCK_BASEDRUM, 0.4f, 1.2f);
                 }
@@ -74,13 +73,11 @@ public class TntBombSession {
         World world = landLoc.getWorld();
         if (world == null) return;
 
-        // Always show explosion — regardless of wheat nearby
         world.spawnParticle(Particle.EXPLOSION, landLoc, 1, 0, 0, 0, 0);
         world.spawnParticle(Particle.LARGE_SMOKE, landLoc, 20, 0.8, 0.4, 0.8, 0.05);
         world.spawnParticle(Particle.FLAME, landLoc, 30, 0.6, 0.3, 0.6, 0.1);
         world.playSound(landLoc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.0f);
 
-        // Harvest wheat in radius
         int harvested = 0;
         for (int dx = -EXPLOSION_RADIUS; dx <= EXPLOSION_RADIUS; dx++) {
             for (int dz = -EXPLOSION_RADIUS; dz <= EXPLOSION_RADIUS; dz++) {
@@ -103,15 +100,18 @@ public class TntBombSession {
             }
         }
 
-        if (harvested == 0) return; // explosion already shown above, just no tokens
+        if (harvested == 0) return;
 
         double prestigeMult = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
         long   tokens       = Math.round(BASE_TOKEN_REWARD * harvested * tntLevel * prestigeMult);
 
         plugin.getCurrencyManager().addTokens(player, (int) tokens);
-        player.sendActionBar(MessageUtil.parse(
-                "<gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 +" + tokens + " Tokens</gradient>"
-                + " <dark_gray>(" + harvested + " crops)"));
+
+        MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 Bomb hit!</gradient>"
+                + " <yellow>+" + tokens + " Tokens</yellow>"
+                + " <gray>\u00b7</gray> <dark_gray>(" + harvested + " crops \u00b7 Lv " + tntLevel
+                + " \u00b7 Prestige \u00d7" + String.format("%.1f", prestigeMult) + ")</dark_gray>");
     }
 
     private static void scheduleRegrow(Main plugin, Block block) {
