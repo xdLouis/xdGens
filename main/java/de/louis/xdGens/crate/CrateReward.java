@@ -53,7 +53,7 @@ public enum CrateReward {
     TAG_STONECUTTER("[Stonecutter]", Material.STONE_BRICKS,       0.05, 0, Type.TAG),
     TAG_FLETCHER  ("[Fletcher]",     Material.FLETCHING_TABLE,    0.05, 0, Type.TAG),
     TAG_TANNER    ("[Tanner]",       Material.LEATHER,            0.05, 0, Type.TAG),
-    TAG_BUTCHER   ("[Butcher]",      Material.PORK_CHOP,          0.05, 0, Type.TAG),
+    TAG_BUTCHER   ("[Butcher]",      Material.PORKCHOP,          0.05, 0, Type.TAG),
     TAG_CARTOGRAPH("[Cartographer]", Material.FILLED_MAP,         0.05, 0, Type.TAG),
     TAG_CLERIC    ("\u271E Cleric",       Material.NETHER_WART,        0.05, 0, Type.TAG),
     TAG_TOOLSMITH ("[Toolsmith]",    Material.IRON_PICKAXE,       0.05, 0, Type.TAG),

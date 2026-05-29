@@ -46,6 +46,11 @@ public class JoinListener implements Listener {
         if (plugin.getGlowManager() != null) {
             plugin.getGlowManager().applyGlow(player);
         }
+
+        plugin.getGlowManager().applyGlow(event.getPlayer());
+
+
+
     }
 
     @EventHandler
