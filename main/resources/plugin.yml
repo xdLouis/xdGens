@@ -21,6 +21,8 @@ commands:
     description: Sell all farm items in your inventory
   shop:
     description: Open the xdGens shop
+  crates:
+    description: Open the crates menu
   xdadmin:
     description: Admin command for xdGens
     usage: /xdadmin
