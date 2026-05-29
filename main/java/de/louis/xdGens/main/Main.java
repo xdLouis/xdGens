@@ -61,6 +61,11 @@ public final class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
         getServer().getPluginManager().registerEvents(lobbyProtectionListener, this);
 
+        // Trash
+        TrashCommand trashCommand = new TrashCommand();
+        if (getCommand("trash") != null) getCommand("trash").setExecutor(trashCommand);
+        getServer().getPluginManager().registerEvents(trashCommand, this);
+
         lobbyProtectionListener.applyToAllWorlds();
 
         getServer().getScheduler().runTaskTimer(this, () ->
