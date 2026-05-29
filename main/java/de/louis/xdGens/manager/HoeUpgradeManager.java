@@ -31,10 +31,10 @@ public class HoeUpgradeManager {
     private static final double XP_EXP_SCALE      = 1.035;
     private static final double XP_GAIN_PER_LEVEL = 0.02;
 
-    private static final double TOKEN_BASE_COST      = 600.0;   // was 900
+    private static final double TOKEN_BASE_COST      = 450.0;   // was 600
     private static final double TOKEN_LINEAR_SCALE   = 0.20;
     private static final double TOKEN_EXP_SCALE      = 1.036;
-    private static final double TOKEN_GAIN_PER_LEVEL = 0.05;   // was 0.02  →  +5% per level
+    private static final double TOKEN_GAIN_PER_LEVEL = 0.08;   // was 0.05  →  +8% per level
 
     private static final double KEY_FINDER_BASE_COST      = 1500.0;
     private static final double KEY_FINDER_LINEAR_SCALE   = 0.22;
