@@ -16,13 +16,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Sub-menu for choosing how many levels of an upgrade to buy at once.
- * Works for: crop, xp, token, keyfinder
- */
 public class HoeUpgradeAmountGUI {
 
-    public static final String TITLE_PREFIX = "Buy Upgrade – ";
+    public static final String TITLE_PREFIX = "Buy Upgrade \u2013 ";
     public static final int SLOT_PLUS1  = 10;
     public static final int SLOT_PLUS10 = 11;
     public static final int SLOT_PLUS25 = 12;
@@ -43,6 +39,8 @@ public class HoeUpgradeAmountGUI {
             case "crop"      -> "Crop Harvest";
             case "xp"        -> "XP Boost";
             case "keyfinder" -> "Key Finder";
+            case "panda"     -> "Panda Roller";
+            case "tnt"       -> "TNT Bomber";
             default          -> "Token Boost";
         };
 
@@ -94,13 +92,13 @@ public class HoeUpgradeAmountGUI {
         if (maxed || realAmount <= 0) {
             lore.add(MessageUtil.parse("<gold>Already at max level!"));
         } else {
-            lore.add(MessageUtil.parse("<gray>Levels: <white>" + current + " → " + (current + realAmount)));
+            lore.add(MessageUtil.parse("<gray>Levels: <white>" + current + " \u2192 " + (current + realAmount)));
             lore.add(MessageUtil.parse("<gray>Cost:   <white>" + NumberUtil.format(cost) + " Tokens"));
             lore.add(MessageUtil.parse("<gray>Yours:  " + (tokens >= cost ? "<green>" : "<red>") + NumberUtil.format(tokens) + "</" + (tokens >= cost ? "green" : "red") + ">"));
             lore.add(Component.empty());
             lore.add(canAfford
-                    ? MessageUtil.parse("<green>▶ Click to buy")
-                    : MessageUtil.parse("<red>✘ Not enough Tokens"));
+                    ? MessageUtil.parse("<green>\u25BA Click to buy")
+                    : MessageUtil.parse("<red>\u2718 Not enough Tokens"));
         }
         meta.lore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -131,13 +129,13 @@ public class HoeUpgradeAmountGUI {
         if (maxed) {
             lore.add(MessageUtil.parse("<gold>Already at max level!"));
         } else {
-            lore.add(MessageUtil.parse("<gray>Levels: <white>" + current + " → " + max));
+            lore.add(MessageUtil.parse("<gray>Levels: <white>" + current + " \u2192 " + max));
             lore.add(MessageUtil.parse("<gray>Cost:   <white>" + NumberUtil.format(cost) + " Tokens"));
             lore.add(MessageUtil.parse("<gray>Yours:  " + (tokens >= cost ? "<green>" : "<red>") + NumberUtil.format(tokens) + "</" + (tokens >= cost ? "green" : "red") + ">"));
             lore.add(Component.empty());
             lore.add(canAfford
-                    ? MessageUtil.parse("<green>▶ Click to buy all")
-                    : MessageUtil.parse("<red>✘ Not enough Tokens"));
+                    ? MessageUtil.parse("<green>\u25BA Click to buy all")
+                    : MessageUtil.parse("<red>\u2718 Not enough Tokens"));
         }
         meta.lore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -148,7 +146,7 @@ public class HoeUpgradeAmountGUI {
     private ItemStack buildBackItem() {
         ItemStack item = new ItemStack(Material.ARROW);
         ItemMeta  meta = item.getItemMeta();
-        meta.displayName(MessageUtil.parse("<gray>◀ Back"));
+        meta.displayName(MessageUtil.parse("<gray>\u25C4 Back"));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         item.setItemMeta(meta);
         return item;
@@ -160,6 +158,8 @@ public class HoeUpgradeAmountGUI {
             case "crop"      -> m.getCropLevel(player);
             case "xp"        -> m.getXpLevel(player);
             case "keyfinder" -> m.getKeyFinderLevel(player);
+            case "panda"     -> m.getPandaLevel(player);
+            case "tnt"       -> m.getTntLevel(player);
             default          -> m.getTokenLevel(player);
         };
     }
@@ -169,6 +169,8 @@ public class HoeUpgradeAmountGUI {
             case "crop"      -> HoeUpgradeManager.MAX_CROP_LEVEL;
             case "xp"        -> HoeUpgradeManager.MAX_XP_LEVEL;
             case "keyfinder" -> HoeUpgradeManager.MAX_KEY_FINDER_LEVEL;
+            case "panda"     -> HoeUpgradeManager.MAX_PANDA_LEVEL;
+            case "tnt"       -> HoeUpgradeManager.MAX_TNT_LEVEL;
             default          -> HoeUpgradeManager.MAX_TOKEN_LEVEL;
         };
     }
@@ -179,6 +181,8 @@ public class HoeUpgradeAmountGUI {
             case "crop"      -> m.getCropCost(fromLevel + 1);
             case "xp"        -> m.getXpCost(fromLevel + 1);
             case "keyfinder" -> m.getKeyFinderCost(fromLevel + 1);
+            case "panda"     -> m.getPandaCost(fromLevel + 1);
+            case "tnt"       -> m.getTntCost(fromLevel + 1);
             default          -> m.getTokenCost(fromLevel + 1);
         };
     }
@@ -188,6 +192,8 @@ public class HoeUpgradeAmountGUI {
             case "crop"      -> "<gradient:#f6d365:#fda085>";
             case "xp"        -> "<gradient:#7afcff:#00c2ff>";
             case "keyfinder" -> "<gradient:#a18cd1:#fbc2eb>";
+            case "panda"     -> "<gradient:#a8e6cf:#88d8b0>";
+            case "tnt"       -> "<gradient:#ff6b6b:#ffd93d>";
             default          -> "<gradient:#ffd86f:#fc6262>";
         };
     }
