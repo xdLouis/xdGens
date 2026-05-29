@@ -20,9 +20,7 @@ public class CosmeticsGUIListener implements Listener {
 
     private final Main plugin;
 
-    public CosmeticsGUIListener(Main plugin) {
-        this.plugin = plugin;
-    }
+    public CosmeticsGUIListener(Main plugin) { this.plugin = plugin; }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onClick(InventoryClickEvent event) {
@@ -30,27 +28,19 @@ public class CosmeticsGUIListener implements Listener {
 
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
-        // ── Filter GUI click ────────────────────────────────────────────
+        // ── Filter GUI ──────────────────────────────────────────────────
         FilterGUI.FilterPage fp = FilterGUI.decode(title);
         if (fp != null) {
             event.setCancelled(true);
             int slot = event.getRawSlot();
             if (slot < 0 || slot >= 27) return;
-
             CosmeticsGUI gui = new CosmeticsGUI(plugin);
-
-            // back button
-            if (slot == 4) {
-                gui.open(player, fp.tab(), fp.page(), fp.sort());
-                return;
-            }
-
-            // sort option slots
+            if (slot == 4) { gui.open(player, fp.tab(), fp.page(), fp.sort()); return; }
             int[] sortSlots = { 10, 11, 12, 13, 14, 15, 16 };
             CosmeticsGUI.Sort[] sorts = CosmeticsGUI.Sort.values();
             for (int i = 0; i < sortSlots.length && i < sorts.length; i++) {
                 if (slot == sortSlots[i]) {
-                    player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
                     gui.open(player, fp.tab(), 0, sorts[i]);
                     return;
                 }
@@ -58,13 +48,13 @@ public class CosmeticsGUIListener implements Listener {
             return;
         }
 
-        // ── Cosmetics GUI click ─────────────────────────────────────────
-        CosmeticsGUI.TabPage tabPage = CosmeticsGUI.decode(title);
-        if (tabPage == null) return;
+        // ── Cosmetics GUI ───────────────────────────────────────────────
+        CosmeticsGUI.TabPage tp = CosmeticsGUI.decode(title);
+        if (tp == null) return;
 
-        CosmeticsGUI.Tab  tab         = tabPage.tab();
-        int               currentPage = tabPage.page();
-        CosmeticsGUI.Sort currentSort = tabPage.sort();
+        CosmeticsGUI.Tab  tab  = tp.tab();
+        int               page = tp.page();
+        CosmeticsGUI.Sort sort = tp.sort();
 
         event.setCancelled(true);
         int slot = event.getRawSlot();
@@ -79,20 +69,20 @@ public class CosmeticsGUIListener implements Listener {
         if (slot == 2) { gui.openChatColors(player); return; }
         if (slot == 3) { gui.openGlow(player);       return; }
 
-        // filter button
-        if (slot == 7) {
+        // filter
+        if (slot == CosmeticsGUI.SLOT_FILTER) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.0f);
-            new FilterGUI(plugin).open(player, tab, currentPage, currentSort);
+            new FilterGUI(plugin).open(player, tab, page, sort);
             return;
         }
 
         // pagination
         if (slot == CosmeticsGUI.SLOT_PREV) {
-            if (currentPage > 0) gui.open(player, tab, currentPage - 1, currentSort);
+            if (page > 0) gui.open(player, tab, page - 1, sort);
             return;
         }
         if (slot == CosmeticsGUI.SLOT_NEXT) {
-            gui.open(player, tab, currentPage + 1, currentSort);
+            gui.open(player, tab, page + 1, sort);
             return;
         }
 
@@ -102,15 +92,12 @@ public class CosmeticsGUIListener implements Listener {
                 case TAGS        -> mgr.setActiveTag(player, null);
                 case NAME_COLORS -> mgr.setActiveColor(player, null);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, null);
-                case GLOW        -> {
-                    mgr.setActiveGlow(player, null);
-                    plugin.getGlowManager().removeGlow(player);
-                }
+                case GLOW        -> { mgr.setActiveGlow(player, null); plugin.getGlowManager().removeGlow(player); }
             }
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.8f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Removed active "
                     + tab.name().toLowerCase().replace('_', ' ') + ".");
-            gui.open(player, tab, currentPage, currentSort);
+            gui.open(player, tab, page, sort);
             return;
         }
 
@@ -118,8 +105,7 @@ public class CosmeticsGUIListener implements Listener {
         int contentIdx = slotToContentIdx(slot);
         if (contentIdx < 0) return;
 
-        int pageSize  = CosmeticsGUI.CONTENT_SLOTS.length;
-        int globalIdx = currentPage * pageSize + contentIdx;
+        int globalIdx = page * CosmeticsGUI.CONTENT_SLOTS.length + contentIdx;
 
         CrateReward.Type type = switch (tab) {
             case TAGS        -> CrateReward.Type.TAG;
@@ -137,8 +123,8 @@ public class CosmeticsGUIListener implements Listener {
             case GLOW        -> mgr.getUnlockedGlows(player);
         };
 
-        // apply same sort as GUI
-        all.sort(buildComparator(currentSort, collection, player, mgr));
+        // use the shared comparator from CosmeticsGUI
+        all.sort(CosmeticsGUI.buildComparator(sort, collection, player, mgr));
 
         if (globalIdx >= all.size()) return;
 
@@ -162,10 +148,7 @@ public class CosmeticsGUIListener implements Listener {
                 case TAGS        -> mgr.setActiveTag(player, null);
                 case NAME_COLORS -> mgr.setActiveColor(player, null);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, null);
-                case GLOW        -> {
-                    mgr.setActiveGlow(player, null);
-                    plugin.getGlowManager().removeGlow(player);
-                }
+                case GLOW        -> { mgr.setActiveGlow(player, null); plugin.getGlowManager().removeGlow(player); }
             }
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.8f, 0.9f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gray>Unequipped <white>"
@@ -175,10 +158,7 @@ public class CosmeticsGUIListener implements Listener {
                 case TAGS        -> mgr.setActiveTag(player, reward);
                 case NAME_COLORS -> mgr.setActiveColor(player, reward);
                 case CHAT_COLORS -> mgr.setActiveChatColor(player, reward);
-                case GLOW        -> {
-                    mgr.setActiveGlow(player, reward);
-                    plugin.getGlowManager().applyGlow(player);
-                }
+                case GLOW        -> { mgr.setActiveGlow(player, reward); plugin.getGlowManager().applyGlow(player); }
             }
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.4f);
             String preview;
@@ -188,59 +168,12 @@ public class CosmeticsGUIListener implements Listener {
             else                           preview = reward.getCosmeticFormat();
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Equipped: " + preview);
         }
-        gui.open(player, tab, currentPage, currentSort);
+        gui.open(player, tab, page, sort);
     }
-
-    // ── helpers ──────────────────────────────────────────────────────
 
     private int slotToContentIdx(int slot) {
         int[] cs = CosmeticsGUI.CONTENT_SLOTS;
         for (int i = 0; i < cs.length; i++) if (cs[i] == slot) return i;
         return -1;
-    }
-
-    private Comparator<CrateReward> buildComparator(CosmeticsGUI.Sort sort,
-                                                     Set<CrateReward> collection,
-                                                     Player player,
-                                                     PlayerCosmeticManager mgr) {
-        return switch (sort) {
-            case RARITY_DESC -> (a, b) -> {
-                boolean ua = collection.contains(a), ub = collection.contains(b);
-                if (ua != ub) return ua ? -1 : 1;
-                return Integer.compare(b.getTier(), a.getTier());
-            };
-            case RARITY_ASC -> (a, b) -> {
-                boolean ua = collection.contains(a), ub = collection.contains(b);
-                if (ua != ub) return ua ? -1 : 1;
-                return Integer.compare(a.getTier(), b.getTier());
-            };
-            case NAME_AZ    -> Comparator.comparing(r -> stripSymbols(r.getDisplayName()));
-            case NAME_ZA    -> (a, b) -> stripSymbols(b.getDisplayName()).compareTo(stripSymbols(a.getDisplayName()));
-            case NEWEST     -> (a, b) -> {
-                long ta = mgr.getUnlockTimestamp(player, a);
-                long tb = mgr.getUnlockTimestamp(player, b);
-                if (ta == 0 && tb == 0) return 0;
-                if (ta == 0) return 1;
-                if (tb == 0) return -1;
-                return Long.compare(tb, ta);
-            };
-            case OLDEST     -> (a, b) -> {
-                long ta = mgr.getUnlockTimestamp(player, a);
-                long tb = mgr.getUnlockTimestamp(player, b);
-                if (ta == 0 && tb == 0) return 0;
-                if (ta == 0) return 1;
-                if (tb == 0) return -1;
-                return Long.compare(ta, tb);
-            };
-            case UNLOCKED   -> (a, b) -> {
-                boolean ua = collection.contains(a), ub = collection.contains(b);
-                if (ua != ub) return ua ? -1 : 1;
-                return Integer.compare(b.getTier(), a.getTier());
-            };
-        };
-    }
-
-    private String stripSymbols(String s) {
-        return s.replaceAll("[^\\p{L}\\p{N} ]", "").trim().toLowerCase(java.util.Locale.ROOT);
     }
 }

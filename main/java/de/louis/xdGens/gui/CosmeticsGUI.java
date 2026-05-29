@@ -23,7 +23,6 @@ import java.util.*;
  * Row 5 (slots 45–53): filler
  *
  * Title encoding: "<base>|<tab>|<page>|<sort>"
- * e.g. "❆ Cosmetics » Tags|TAGS|0|RARITY_DESC"
  */
 public class CosmeticsGUI {
 
@@ -43,7 +42,7 @@ public class CosmeticsGUI {
     private static final int SLOT_TAB_NAME_COLORS = 1;
     private static final int SLOT_TAB_CHAT_COLORS = 2;
     private static final int SLOT_TAB_GLOW        = 3;
-    private static final int SLOT_FILTER          = 7;
+    public  static final int SLOT_FILTER          = 7;
     private static final int SLOT_UNEQUIP         = 8;
 
     public static final int[] CONTENT_SLOTS = {
@@ -77,12 +76,12 @@ public class CosmeticsGUI {
 
     public CosmeticsGUI(Main plugin) { this.plugin = plugin; }
 
-    public void openTags(Player p)       { open(p, Tab.TAGS, 0, Sort.RARITY_DESC); }
+    public void openTags(Player p)       { open(p, Tab.TAGS,        0, Sort.RARITY_DESC); }
     public void openColors(Player p)     { open(p, Tab.NAME_COLORS, 0, Sort.RARITY_DESC); }
     public void openChatColors(Player p) { open(p, Tab.CHAT_COLORS, 0, Sort.RARITY_DESC); }
-    public void openGlow(Player p)       { open(p, Tab.GLOW, 0, Sort.RARITY_DESC); }
-    public void open(Player p)           { open(p, Tab.TAGS, 0, Sort.RARITY_DESC); }
-    public void open(Player p, Tab tab)  { open(p, tab, 0, Sort.RARITY_DESC); }
+    public void openGlow(Player p)       { open(p, Tab.GLOW,        0, Sort.RARITY_DESC); }
+    public void open(Player p)           { open(p, Tab.TAGS,        0, Sort.RARITY_DESC); }
+    public void open(Player p, Tab tab)  { open(p, tab,             0, Sort.RARITY_DESC); }
 
     public void open(Player player, Tab tab, int page, Sort sort) {
         String baseTitle = switch (tab) {
@@ -121,15 +120,14 @@ public class CosmeticsGUI {
 
         for (int i = 4; i <= 6; i++) inv.setItem(i, filler());
 
-        // filter button (slot 7)
+        // filter button
         inv.setItem(SLOT_FILTER, buildItem(Material.HOPPER,
                 "<yellow><bold>\uD83D\uDD0D Filter / Sort</bold></yellow>",
-                List.of("<gray>Current: <white>" + sort.label,
-                        "",
+                List.of("<gray>Current: <white>" + sort.label, "",
                         "<yellow>Click to change sort order"),
                 false));
 
-        // unequip button (slot 8)
+        // unequip button
         Optional<CrateReward> active = switch (tab) {
             case TAGS        -> mgr.getActiveTag(player);
             case NAME_COLORS -> mgr.getActiveColor(player);
@@ -151,7 +149,7 @@ public class CosmeticsGUI {
                         hasActive ? "<red>Click to unequip." : "<dark_gray>Nothing equipped."),
                 false));
 
-        // collect + sort cosmetics
+        // collect + sort
         CrateReward.Type type = switch (tab) {
             case TAGS        -> CrateReward.Type.TAG;
             case NAME_COLORS -> CrateReward.Type.NAME_COLOR;
@@ -167,10 +165,7 @@ public class CosmeticsGUI {
 
         List<CrateReward> all = new ArrayList<>();
         for (CrateReward r : CrateReward.values()) if (r.getType() == type) all.add(r);
-
-        // apply sort
-        Comparator<CrateReward> cmp = buildComparator(sort, collection, player, mgr);
-        all.sort(cmp);
+        all.sort(buildComparator(sort, collection, player, mgr));
 
         int totalPages = Math.max(1, (int) Math.ceil((double) all.size() / PAGE_SIZE));
         int safePage   = Math.max(0, Math.min(page, totalPages - 1));
@@ -184,61 +179,49 @@ public class CosmeticsGUI {
             inv.setItem(CONTENT_SLOTS[i - start], buildCosmeticItem(r, unlocked, isActive, player));
         }
 
-        // pagination row
-        if (safePage > 0) {
-            inv.setItem(SLOT_PREV, buildItem(Material.ARROW,
-                    "<yellow><bold>\u25c4 Previous Page</bold></yellow>",
-                    List.of("<gray>Page " + safePage + " of " + totalPages), false));
-        } else {
-            inv.setItem(SLOT_PREV, filler());
-        }
+        // pagination
+        inv.setItem(SLOT_PREV, safePage > 0
+                ? buildItem(Material.ARROW, "<yellow><bold>\u25c4 Previous Page</bold></yellow>",
+                            List.of("<gray>Page " + safePage + " of " + totalPages), false)
+                : filler());
         inv.setItem(SLOT_PAGE_INFO, buildItem(Material.PAPER,
                 "<white>Page " + (safePage + 1) + " / " + totalPages,
                 List.of("<gray>" + all.size() + " cosmetics total"), false));
-        if (safePage < totalPages - 1) {
-            inv.setItem(SLOT_NEXT, buildItem(Material.ARROW,
-                    "<yellow><bold>Next Page \u25ba</bold></yellow>",
-                    List.of("<gray>Page " + (safePage + 2) + " of " + totalPages), false));
-        } else {
-            inv.setItem(SLOT_NEXT, filler());
-        }
+        inv.setItem(SLOT_NEXT, safePage < totalPages - 1
+                ? buildItem(Material.ARROW, "<yellow><bold>Next Page \u25ba</bold></yellow>",
+                            List.of("<gray>Page " + (safePage + 2) + " of " + totalPages), false)
+                : filler());
 
         player.openInventory(inv);
     }
 
-    // ── decode title ──────────────────────────────────────────────────
+    // ── decode ──────────────────────────────────────────────────────────
 
     public static TabPage decode(String plainTitle) {
         String[] parts = plainTitle.split("\\|");
         if (parts.length < 3) return null;
         try {
-            Tab  tab  = Tab.valueOf(parts[parts.length - (parts.length >= 4 ? 2 : 2)]);
-            int  page = Integer.parseInt(parts[parts.length - (parts.length >= 4 ? 2 : 1)]);
-            Sort sort = Sort.RARITY_DESC;
             if (parts.length >= 4) {
-                tab  = Tab.valueOf(parts[parts.length - 2]);
-                page = Integer.parseInt(parts[parts.length - 2]);
-                // re-parse properly
+                Tab  tab  = Tab.valueOf(parts[parts.length - 3]);
+                int  page = Integer.parseInt(parts[parts.length - 2]);
+                Sort sort = Sort.valueOf(parts[parts.length - 1]);
+                return new TabPage(tab, page, sort);
+            } else {
+                Tab tab  = Tab.valueOf(parts[parts.length - 2]);
+                int page = Integer.parseInt(parts[parts.length - 1]);
+                return new TabPage(tab, page, Sort.RARITY_DESC);
             }
-            // clean parse
-            if (parts.length >= 4) {
-                tab  = Tab.valueOf(parts[parts.length - 3]);
-                page = Integer.parseInt(parts[parts.length - 2]);
-                sort = Sort.valueOf(parts[parts.length - 1]);
-            } else if (parts.length == 3) {
-                tab  = Tab.valueOf(parts[parts.length - 2]);
-                page = Integer.parseInt(parts[parts.length - 1]);
-            }
-            return new TabPage(tab, page, sort);
         } catch (Exception e) { return null; }
     }
 
     public record TabPage(Tab tab, int page, Sort sort) {}
 
-    // ── sort comparator ───────────────────────────────────────────────
+    // ── shared static comparator (used by GUI + Listener) ─────────────────────
 
-    private Comparator<CrateReward> buildComparator(Sort sort, Set<CrateReward> collection,
-                                                     Player player, PlayerCosmeticManager mgr) {
+    public static Comparator<CrateReward> buildComparator(Sort sort,
+                                                           Set<CrateReward> collection,
+                                                           Player player,
+                                                           PlayerCosmeticManager mgr) {
         return switch (sort) {
             case RARITY_DESC -> (a, b) -> {
                 boolean ua = collection.contains(a), ub = collection.contains(b);
@@ -250,34 +233,33 @@ public class CosmeticsGUI {
                 if (ua != ub) return ua ? -1 : 1;
                 return Integer.compare(a.getTier(), b.getTier());
             };
-            case NAME_AZ    -> Comparator.comparing(r -> plainName(r.getDisplayName()));
-            case NAME_ZA    -> (a, b) -> plainName(b.getDisplayName()).compareTo(plainName(a.getDisplayName()));
-            case NEWEST     -> (a, b) -> {
-                long ta = mgr.getUnlockTimestamp(player, a);
-                long tb = mgr.getUnlockTimestamp(player, b);
-                if (ta == 0 && tb == 0) return 0;
-                if (ta == 0) return 1;   // unowned goes last
-                if (tb == 0) return -1;
-                return Long.compare(tb, ta); // newest first
-            };
-            case OLDEST     -> (a, b) -> {
+            case NAME_AZ  -> Comparator.comparing(r -> stripSymbols(r.getDisplayName()));
+            case NAME_ZA  -> (a, b) -> stripSymbols(b.getDisplayName()).compareTo(stripSymbols(a.getDisplayName()));
+            case NEWEST   -> (a, b) -> {
                 long ta = mgr.getUnlockTimestamp(player, a);
                 long tb = mgr.getUnlockTimestamp(player, b);
                 if (ta == 0 && tb == 0) return 0;
                 if (ta == 0) return 1;
                 if (tb == 0) return -1;
-                return Long.compare(ta, tb); // oldest first
+                return Long.compare(tb, ta);
             };
-            case UNLOCKED   -> (a, b) -> {
+            case OLDEST   -> (a, b) -> {
+                long ta = mgr.getUnlockTimestamp(player, a);
+                long tb = mgr.getUnlockTimestamp(player, b);
+                if (ta == 0 && tb == 0) return 0;
+                if (ta == 0) return 1;
+                if (tb == 0) return -1;
+                return Long.compare(ta, tb);
+            };
+            case UNLOCKED -> (a, b) -> {
                 boolean ua = collection.contains(a), ub = collection.contains(b);
                 if (ua != ub) return ua ? -1 : 1;
-                return Integer.compare(b.getTier(), a.getTier()); // secondary: rarity
+                return Integer.compare(b.getTier(), a.getTier());
             };
         };
     }
 
-    private static String plainName(String s) {
-        // strip basic emoji/symbol prefix for alphabetical sort
+    public static String stripSymbols(String s) {
         return s.replaceAll("[^\\p{L}\\p{N} ]", "").trim().toLowerCase(Locale.ROOT);
     }
 
@@ -285,7 +267,6 @@ public class CosmeticsGUI {
 
     private ItemStack buildCosmeticItem(CrateReward r, boolean unlocked, boolean active, Player player) {
         Material mat = unlocked ? r.getIcon() : Material.GRAY_STAINED_GLASS_PANE;
-
         String previewRaw;
         if (r.isColor())          previewRaw = r.getCosmeticFormat().replace("{name}", player.getName());
         else if (r.isChatColor()) previewRaw = r.getCosmeticFormat().replace("{msg}", "Hello, world!");
@@ -331,12 +312,10 @@ public class CosmeticsGUI {
     }
 
     private ItemStack tabBtn(boolean active, Material mat, String name, String hint) {
-        ItemStack item = buildItem(active ? Material.LIME_STAINED_GLASS_PANE : mat, name,
-                List.of(hint), false);
-        return item;
+        return buildItem(active ? Material.LIME_STAINED_GLASS_PANE : mat, name, List.of(hint), false);
     }
 
-    static ItemStack buildItem(Material mat, String name, List<String> lore, boolean enchanted) {
+    public static ItemStack buildItem(Material mat, String name, List<String> lore, boolean enchanted) {
         ItemStack item = new ItemStack(mat);
         ItemMeta  meta = item.getItemMeta();
         meta.displayName(MessageUtil.parse(name));
@@ -351,7 +330,7 @@ public class CosmeticsGUI {
         return item;
     }
 
-    private static ItemStack filler() {
+    public static ItemStack filler() {
         return buildItem(Material.GRAY_STAINED_GLASS_PANE, "<gray>\u00a0", List.of(), false);
     }
 }
