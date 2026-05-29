@@ -1,9 +1,6 @@
 package de.louis.xdGens.listener;
 
-import de.louis.xdGens.crate.CrateType;
-import de.louis.xdGens.crate.PouchItem;
-import de.louis.xdGens.crate.PouchTier;
-import de.louis.xdGens.crate.PouchType;
+import de.louis.xdGens.crate.*;
 import de.louis.xdGens.gui.CratePreviewGUI;
 import de.louis.xdGens.gui.CratesGUI;
 import de.louis.xdGens.main.Main;
@@ -29,12 +26,9 @@ import java.util.Map;
 public class CrateListener implements Listener {
 
     private final Main plugin;
-
     private static final String CRATES_TITLE = "\uD83C\uDF81 Crates";
 
-    public CrateListener(Main plugin) {
-        this.plugin = plugin;
-    }
+    public CrateListener(Main plugin) { this.plugin = plugin; }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
@@ -110,7 +104,7 @@ public class CrateListener implements Listener {
         }
         CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
         redeemPouches(player, result);
-        giveVoucher(player, result);
+        autoRedeemOrGiveVoucher(player, result);
         playCrateSound(player);
         sendOpenMessage(player, type, result);
         new CratesGUI(plugin).open(player);
@@ -127,7 +121,7 @@ public class CrateListener implements Listener {
         }
 
         long totalMoney = 0, totalXp = 0, totalTokens = 0;
-        int  vouchers   = 0;
+        int  newCosmetics = 0, dupVouchers = 0;
         Map<PouchTier, Integer> tierCounts = new EnumMap<>(PouchTier.class);
 
         for (int i = 0; i < total; i++) {
@@ -144,7 +138,10 @@ public class CrateListener implements Listener {
                     case XP     -> { totalXp     += val; plugin.getProgressionManager().addXp(player, val); }
                 }
             }
-            if (result.hasVoucher()) { giveVoucher(player, result); vouchers++; }
+            if (result.hasVoucher()) {
+                boolean isNew = autoRedeemOrGiveVoucher(player, result);
+                if (isNew) newCosmetics++; else dupVouchers++;
+            }
         }
 
         playCrateSound(player);
@@ -160,10 +157,29 @@ public class CrateListener implements Listener {
             sb.append("\n<dark_gray>\u2502</dark_gray> <gray>Tiers: ");
             tierCounts.forEach((tier, cnt) -> sb.append(tier.getDisplayName()).append(" <dark_gray>x").append(cnt).append("</dark_gray>  "));
         }
-        if (vouchers > 0) sb.append("\n<dark_gray>\u251c\u2500 Cosmetic Vouchers: <white>").append(vouchers).append("</white> <gray>(in inventory)</gray>");
+        if (newCosmetics > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <green>\u2728 ").append(newCosmetics).append(" new cosmetic(s) auto-unlocked!</green>");
+        if (dupVouchers  > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <yellow>").append(dupVouchers).append(" duplicate voucher(s) → added to inventory</yellow>");
         sb.append("\n<dark_gray>\u2514\u2500</dark_gray>");
         MessageUtil.sendRaw(player, sb.toString());
         new CratesGUI(plugin).open(player);
+    }
+
+    // ── Auto-redeem logic ──────────────────────────────────────────
+
+    /**
+     * If the cosmetic is new: unlock silently, return true.
+     * If already owned:       give the voucher item to inventory, return false.
+     */
+    private boolean autoRedeemOrGiveVoucher(Player player, CrateManager.CrateOpenResult result) {
+        if (!result.hasVoucher()) return false;
+        CrateReward cosmetic = result.rolledCosmetic();
+        boolean isNew = plugin.getPlayerCosmeticManager().unlock(player, cosmetic);
+        if (!isNew) {
+            // duplicate — give physical voucher
+            var leftovers = player.getInventory().addItem(result.voucherItem());
+            leftovers.values().forEach(l -> player.getWorld().dropItemNaturally(player.getLocation(), l));
+        }
+        return isNew;
     }
 
     // ── Helpers ────────────────────────────────────────────────────
@@ -182,10 +198,16 @@ public class CrateListener implements Listener {
               .append("</white> <gray>").append(readable(pt)).append("</gray>");
         }
         if (result.hasVoucher()) {
-            sb.append("\n  <dark_gray>\u2514</dark_gray> ")
-              .append(result.rolledCosmetic().tierLabel())
-              .append(" <white>").append(result.rolledCosmetic().getDisplayName())
-              .append("</white> <gray>Cosmetic Voucher!</gray>");
+            boolean isNew = plugin.getPlayerCosmeticManager().hasCosmetic(player, result.rolledCosmetic());
+            if (isNew) {
+                sb.append("\n  <dark_gray>\u2514</dark_gray> <green>\u2728 Auto-unlocked:</green> ")
+                  .append(result.rolledCosmetic().tierLabel())
+                  .append(" <white>").append(result.rolledCosmetic().getDisplayName()).append("</white>");
+            } else {
+                sb.append("\n  <dark_gray>\u2514</dark_gray> <yellow>Duplicate voucher → added to inventory:</yellow> ")
+                  .append(result.rolledCosmetic().tierLabel())
+                  .append(" <white>").append(result.rolledCosmetic().getDisplayName()).append("</white>");
+            }
         }
         MessageUtil.sendRaw(player, sb.toString());
     }
@@ -201,12 +223,6 @@ public class CrateListener implements Listener {
                 case XP     -> plugin.getProgressionManager().addXp(player, val);
             }
         }
-    }
-
-    private void giveVoucher(Player player, CrateManager.CrateOpenResult result) {
-        if (!result.hasVoucher()) return;
-        var leftovers = player.getInventory().addItem(result.voucherItem());
-        leftovers.values().forEach(l -> player.getWorld().dropItemNaturally(player.getLocation(), l));
     }
 
     private void playCrateSound(Player player) {

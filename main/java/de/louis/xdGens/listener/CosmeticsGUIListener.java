@@ -1,5 +1,6 @@
 package de.louis.xdGens.listener;
 
+import de.louis.xdGens.crate.CosmeticVoucherItem;
 import de.louis.xdGens.crate.CrateReward;
 import de.louis.xdGens.gui.CosmeticsGUI;
 import de.louis.xdGens.main.Main;
@@ -11,7 +12,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
 
@@ -26,7 +29,6 @@ public class CosmeticsGUIListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-
         CosmeticsGUI.TabPage tp = CosmeticsGUI.decode(title);
         if (tp == null) return;
 
@@ -47,7 +49,7 @@ public class CosmeticsGUIListener implements Listener {
         if (slot == 2) { gui.openChatColors(player); return; }
         if (slot == 3) { gui.openGlow(player);       return; }
 
-        // filter: cycle to next sort in-place, no new inventory
+        // filter
         if (slot == CosmeticsGUI.SLOT_FILTER) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.2f);
             gui.open(player, tab, page, sort.next());
@@ -104,12 +106,34 @@ public class CosmeticsGUIListener implements Listener {
         all.sort(CosmeticsGUI.buildComparator(sort, collection, player, mgr));
 
         if (globalIdx >= all.size()) return;
-
         CrateReward reward = all.get(globalIdx);
+
+        // ── SHIFT-CLICK: Voucher auszahlen ─────────────────────────────
+        if (event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) {
+            if (!mgr.hasCosmetic(player, reward)) {
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1f);
+                MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <red>Du besitzt <white>"
+                        + reward.getDisplayName() + "</white> nicht.</red>");
+                return;
+            }
+            // revoke from collection
+            mgr.revoke(player, reward);
+            // give physical voucher
+            ItemStack voucher = CosmeticVoucherItem.create(plugin, reward);
+            var leftovers = player.getInventory().addItem(voucher);
+            leftovers.values().forEach(l -> player.getWorld().dropItemNaturally(player.getLocation(), l));
+            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1f, 0.8f);
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <yellow>\uD83C\uDFF7 Voucher ausgezahlt: "
+                    + reward.tierLabel() + " <white>" + reward.getDisplayName() + "</white></yellow>");
+            gui.open(player, tab, page, sort);
+            return;
+        }
+
+        // ── Normal click: Equip / Unequip ──────────────────────────────
         if (!mgr.hasCosmetic(player, reward)) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1f);
             MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <red>You haven't unlocked <white>"
-                    + reward.getDisplayName() + "</white> yet.");
+                    + reward.getDisplayName() + "</white> yet.</red>");
             return;
         }
 

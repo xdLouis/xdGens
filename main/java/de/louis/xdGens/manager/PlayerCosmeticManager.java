@@ -10,31 +10,18 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-/**
- * Stores unlocked cosmetics + active selections for each player.
- *
- * Data layout in cosmetics.yml:
- *   players:
- *     <uuid>:
- *       unlocked:          [TAG_FARMER, COLOR_AQUA, ...]
- *       unlocked_dates:    {TAG_FARMER: 1234567890, COLOR_AQUA: 1234567891, ...}
- *       active_tag:        TAG_FARMER
- *       active_color:      COLOR_AQUA
- *       active_chat_color: CHAT_GREEN
- *       active_glow:       GLOW_RED
- */
 public class PlayerCosmeticManager {
 
     private final Main plugin;
     private File file;
     private FileConfiguration cfg;
 
-    private final Map<UUID, Set<String>>  unlocked        = new HashMap<>();
-    private final Map<UUID, Map<String, Long>> unlockedDates = new HashMap<>();
-    private final Map<UUID, String>       activeTag       = new HashMap<>();
-    private final Map<UUID, String>       activeColor     = new HashMap<>();
-    private final Map<UUID, String>       activeChatColor = new HashMap<>();
-    private final Map<UUID, String>       activeGlow      = new HashMap<>();
+    private final Map<UUID, Set<String>>       unlocked        = new HashMap<>();
+    private final Map<UUID, Map<String, Long>> unlockedDates   = new HashMap<>();
+    private final Map<UUID, String>            activeTag       = new HashMap<>();
+    private final Map<UUID, String>            activeColor     = new HashMap<>();
+    private final Map<UUID, String>            activeChatColor = new HashMap<>();
+    private final Map<UUID, String>            activeGlow      = new HashMap<>();
 
     public PlayerCosmeticManager(Main plugin) {
         this.plugin = plugin;
@@ -48,12 +35,15 @@ public class PlayerCosmeticManager {
         return unlocked.getOrDefault(player.getUniqueId(), Set.of()).contains(reward.name());
     }
 
+    /**
+     * Unlocks the cosmetic for the player.
+     * @return true if it was newly added, false if already owned.
+     */
     public boolean unlock(Player player, CrateReward reward) {
         UUID uuid = player.getUniqueId();
         Set<String> set = unlocked.computeIfAbsent(uuid, k -> new LinkedHashSet<>());
         boolean added = set.add(reward.name());
         if (added) {
-            // record timestamp
             unlockedDates
                 .computeIfAbsent(uuid, k -> new LinkedHashMap<>())
                 .put(reward.name(), System.currentTimeMillis());
@@ -62,7 +52,29 @@ public class PlayerCosmeticManager {
         return added;
     }
 
-    /** Returns the epoch-millis when the player unlocked the reward, or 0 if not unlocked. */
+    /**
+     * Removes the cosmetic from the player's collection.
+     * Also clears it as active if currently equipped.
+     * @return true if it was present and removed.
+     */
+    public boolean revoke(Player player, CrateReward reward) {
+        UUID uuid = player.getUniqueId();
+        Set<String> set = unlocked.get(uuid);
+        if (set == null || !set.remove(reward.name())) return false;
+        unlockedDates.getOrDefault(uuid, Map.of()).remove(reward.name());
+        // clear active if this was equipped
+        clearIfActive(activeTag,       uuid, reward);
+        clearIfActive(activeColor,     uuid, reward);
+        clearIfActive(activeChatColor, uuid, reward);
+        clearIfActive(activeGlow,      uuid, reward);
+        save();
+        return true;
+    }
+
+    private void clearIfActive(Map<UUID, String> map, UUID uuid, CrateReward reward) {
+        if (reward.name().equals(map.get(uuid))) map.remove(uuid);
+    }
+
     public long getUnlockTimestamp(Player player, CrateReward reward) {
         Map<String, Long> dates = unlockedDates.get(player.getUniqueId());
         if (dates == null) return 0L;
@@ -132,7 +144,6 @@ public class PlayerCosmeticManager {
                 List<String> list = cfg.getStringList("players." + raw + ".unlocked");
                 unlocked.put(uuid, new LinkedHashSet<>(list));
 
-                // load unlock timestamps
                 String datesPath = "players." + raw + ".unlocked_dates";
                 if (cfg.isConfigurationSection(datesPath)) {
                     Map<String, Long> dates = new LinkedHashMap<>();
@@ -165,15 +176,12 @@ public class PlayerCosmeticManager {
         for (UUID uuid : all) {
             String base = "players." + uuid;
             cfg.set(base + ".unlocked", new ArrayList<>(unlocked.getOrDefault(uuid, Set.of())));
-
-            // save unlock timestamps
             Map<String, Long> dates = unlockedDates.get(uuid);
             if (dates != null) {
                 for (Map.Entry<String, Long> e : dates.entrySet()) {
                     cfg.set(base + ".unlocked_dates." + e.getKey(), e.getValue());
                 }
             }
-
             cfg.set(base + ".active_tag",         activeTag.get(uuid));
             cfg.set(base + ".active_color",       activeColor.get(uuid));
             cfg.set(base + ".active_chat_color",  activeChatColor.get(uuid));
