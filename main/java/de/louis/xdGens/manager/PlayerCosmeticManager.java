@@ -16,7 +16,8 @@ import java.util.*;
  * Data layout in cosmetics.yml:
  *   players:
  *     <uuid>:
- *       unlocked:          [TAG_FARMER, COLOR_AQUA, GLOW_RED, ...]
+ *       unlocked:          [TAG_FARMER, COLOR_AQUA, ...]
+ *       unlocked_dates:    {TAG_FARMER: 1234567890, COLOR_AQUA: 1234567891, ...}
  *       active_tag:        TAG_FARMER
  *       active_color:      COLOR_AQUA
  *       active_chat_color: CHAT_GREEN
@@ -28,11 +29,12 @@ public class PlayerCosmeticManager {
     private File file;
     private FileConfiguration cfg;
 
-    private final Map<UUID, Set<String>> unlocked        = new HashMap<>();
-    private final Map<UUID, String>      activeTag       = new HashMap<>();
-    private final Map<UUID, String>      activeColor     = new HashMap<>();
-    private final Map<UUID, String>      activeChatColor = new HashMap<>();
-    private final Map<UUID, String>      activeGlow      = new HashMap<>();
+    private final Map<UUID, Set<String>>  unlocked        = new HashMap<>();
+    private final Map<UUID, Map<String, Long>> unlockedDates = new HashMap<>();
+    private final Map<UUID, String>       activeTag       = new HashMap<>();
+    private final Map<UUID, String>       activeColor     = new HashMap<>();
+    private final Map<UUID, String>       activeChatColor = new HashMap<>();
+    private final Map<UUID, String>       activeGlow      = new HashMap<>();
 
     public PlayerCosmeticManager(Main plugin) {
         this.plugin = plugin;
@@ -40,71 +42,77 @@ public class PlayerCosmeticManager {
         load();
     }
 
-    // ── public API ──────────────────────────────────────────────
+    // ── public API ───────────────────────────────────────────────────
 
     public boolean hasCosmetic(Player player, CrateReward reward) {
         return unlocked.getOrDefault(player.getUniqueId(), Set.of()).contains(reward.name());
     }
 
     public boolean unlock(Player player, CrateReward reward) {
-        Set<String> set = unlocked.computeIfAbsent(player.getUniqueId(), k -> new LinkedHashSet<>());
+        UUID uuid = player.getUniqueId();
+        Set<String> set = unlocked.computeIfAbsent(uuid, k -> new LinkedHashSet<>());
         boolean added = set.add(reward.name());
+        if (added) {
+            // record timestamp
+            unlockedDates
+                .computeIfAbsent(uuid, k -> new LinkedHashMap<>())
+                .put(reward.name(), System.currentTimeMillis());
+        }
         save();
         return added;
     }
 
-    // ── unlocked getters ────────────────────────────────────────
+    /** Returns the epoch-millis when the player unlocked the reward, or 0 if not unlocked. */
+    public long getUnlockTimestamp(Player player, CrateReward reward) {
+        Map<String, Long> dates = unlockedDates.get(player.getUniqueId());
+        if (dates == null) return 0L;
+        return dates.getOrDefault(reward.name(), 0L);
+    }
+
+    // ── unlocked getters ─────────────────────────────────────────────
 
     public Set<CrateReward> getUnlockedTags(Player player)       { return resolveSet(player, CrateReward.Type.TAG); }
     public Set<CrateReward> getUnlockedColors(Player player)     { return resolveSet(player, CrateReward.Type.NAME_COLOR); }
     public Set<CrateReward> getUnlockedChatColors(Player player) { return resolveSet(player, CrateReward.Type.CHAT_COLOR); }
     public Set<CrateReward> getUnlockedGlows(Player player)      { return resolveSet(player, CrateReward.Type.GLOW); }
 
-    // ── active getters ─────────────────────────────────────────
+    // ── active getters ────────────────────────────────────────────────
 
     public Optional<CrateReward> getActiveTag(Player player)       { return resolveReward(activeTag.get(player.getUniqueId())); }
     public Optional<CrateReward> getActiveColor(Player player)     { return resolveReward(activeColor.get(player.getUniqueId())); }
     public Optional<CrateReward> getActiveChatColor(Player player) { return resolveReward(activeChatColor.get(player.getUniqueId())); }
     public Optional<CrateReward> getActiveGlow(Player player)      { return resolveReward(activeGlow.get(player.getUniqueId())); }
 
-    // ── active setters ─────────────────────────────────────────
+    // ── active setters ────────────────────────────────────────────────
 
     public void setActiveTag(Player player, CrateReward r)       { setActive(activeTag,       player, r); }
     public void setActiveColor(Player player, CrateReward r)     { setActive(activeColor,     player, r); }
     public void setActiveChatColor(Player player, CrateReward r) { setActive(activeChatColor, player, r); }
     public void setActiveGlow(Player player, CrateReward r)      { setActive(activeGlow,      player, r); }
 
-    // ── format builders ───────────────────────────────────────
+    // ── format builders ───────────────────────────────────────────────
 
-    /** Returns the MiniMessage tag-string for the player's active chat tag (may be empty). */
     public String buildTagFormat(Player player) {
         return getActiveTag(player).map(CrateReward::getCosmeticFormat).orElse("");
     }
 
-    /** Returns the name wrapped in the player's active name-color (or plain name). */
     public String buildNameFormat(Player player) {
         return getActiveColor(player)
                 .map(r -> r.getCosmeticFormat().replace("{name}", player.getName()))
                 .orElse(player.getName());
     }
 
-    /** Returns the message wrapped in the player's active chat-color (or plain msg). */
     public String buildChatFormat(Player player, String escapedMsg) {
         return getActiveChatColor(player)
                 .map(r -> r.getCosmeticFormat().replace("{msg}", escapedMsg))
                 .orElse(escapedMsg);
     }
 
-    /**
-     * Returns the glow color string for the player's active glow cosmetic,
-     * or null if none is equipped. Use this in your GlowManager.
-     * "PRISMATIC" signals a colour-cycling glow.
-     */
     public String getGlowColor(Player player) {
         return getActiveGlow(player).map(CrateReward::getGlowColor).orElse(null);
     }
 
-    // ── persistence ─────────────────────────────────────────────
+    // ── persistence ───────────────────────────────────────────────────
 
     private void setup() {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
@@ -123,6 +131,17 @@ public class PlayerCosmeticManager {
                 UUID uuid = UUID.fromString(raw);
                 List<String> list = cfg.getStringList("players." + raw + ".unlocked");
                 unlocked.put(uuid, new LinkedHashSet<>(list));
+
+                // load unlock timestamps
+                String datesPath = "players." + raw + ".unlocked_dates";
+                if (cfg.isConfigurationSection(datesPath)) {
+                    Map<String, Long> dates = new LinkedHashMap<>();
+                    for (String key : cfg.getConfigurationSection(datesPath).getKeys(false)) {
+                        dates.put(key, cfg.getLong(datesPath + "." + key));
+                    }
+                    unlockedDates.put(uuid, dates);
+                }
+
                 String tag       = cfg.getString("players." + raw + ".active_tag");
                 String color     = cfg.getString("players." + raw + ".active_color");
                 String chatColor = cfg.getString("players." + raw + ".active_chat_color");
@@ -145,7 +164,16 @@ public class PlayerCosmeticManager {
         all.addAll(activeGlow.keySet());
         for (UUID uuid : all) {
             String base = "players." + uuid;
-            cfg.set(base + ".unlocked",          new ArrayList<>(unlocked.getOrDefault(uuid, Set.of())));
+            cfg.set(base + ".unlocked", new ArrayList<>(unlocked.getOrDefault(uuid, Set.of())));
+
+            // save unlock timestamps
+            Map<String, Long> dates = unlockedDates.get(uuid);
+            if (dates != null) {
+                for (Map.Entry<String, Long> e : dates.entrySet()) {
+                    cfg.set(base + ".unlocked_dates." + e.getKey(), e.getValue());
+                }
+            }
+
             cfg.set(base + ".active_tag",         activeTag.get(uuid));
             cfg.set(base + ".active_color",       activeColor.get(uuid));
             cfg.set(base + ".active_chat_color",  activeChatColor.get(uuid));
@@ -155,7 +183,7 @@ public class PlayerCosmeticManager {
         catch (IOException e) { plugin.getLogger().severe("Cannot save cosmetics.yml: " + e.getMessage()); }
     }
 
-    // ── helpers ──────────────────────────────────────────────
+    // ── helpers ───────────────────────────────────────────────────────
 
     private void setActive(Map<UUID, String> map, Player player, CrateReward r) {
         if (r == null) map.remove(player.getUniqueId());
