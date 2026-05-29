@@ -64,14 +64,22 @@ public class HoeUpgradeListener implements Listener {
         // ── main GUI ──────────────────────────────────────────────────────
         if (title.contains("Hoe Upgrades")) {
             event.setCancelled(true);
-            ItemStack clicked = event.getCurrentItem();
-            if (clicked == null || clicked.getType().isAir()) return;
+            int slot = event.getSlot();
 
-            switch (event.getSlot()) {
-                case 11 -> new HoeUpgradeAmountGUI(plugin, "crop").open(player);
-                case 15 -> new HoeUpgradeAmountGUI(plugin, "xp").open(player);
-                case 29 -> new HoeUpgradeAmountGUI(plugin, "token").open(player);
-                case 33 -> handleHoeUpgrade(player);
+            // Footer items are decorative—ignore them
+            if (slot >= HoeUpgradeGUI.UPGRADE_SLOTS) return;
+
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType().isAir()
+                    || clicked.getType() == Material.BLACK_STAINED_GLASS_PANE) return;
+
+            // Dispatch by slot (= index in buildUpgradeItems list)
+            switch (slot) {
+                case HoeUpgradeGUI.SLOT_CROP  -> new HoeUpgradeAmountGUI(plugin, "crop").open(player);
+                case HoeUpgradeGUI.SLOT_XP    -> new HoeUpgradeAmountGUI(plugin, "xp").open(player);
+                case HoeUpgradeGUI.SLOT_TOKEN -> new HoeUpgradeAmountGUI(plugin, "token").open(player);
+                case HoeUpgradeGUI.SLOT_HOE   -> handleHoeUpgrade(player);
+                // Future upgrades: add cases here
             }
             return;
         }
