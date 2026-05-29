@@ -59,7 +59,7 @@ public class HoeUpgradeListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
-        // ── main GUI ──────────────────────────────────────────────────────
+        // ── main GUI ─────────────────────────────────────────────────────────
         if (title.contains("Hoe Upgrades")) {
             event.setCancelled(true);
             int slot = event.getSlot();
@@ -76,12 +76,12 @@ public class HoeUpgradeListener implements Listener {
                 case HoeUpgradeGUI.SLOT_TOKEN      -> new HoeUpgradeAmountGUI(plugin, "token").open(player);
                 case HoeUpgradeGUI.SLOT_HOE        -> handleHoeUpgrade(player);
                 case HoeUpgradeGUI.SLOT_KEY_FINDER -> new HoeUpgradeAmountGUI(plugin, "keyfinder").open(player);
-                case HoeUpgradeGUI.SLOT_PANDA      -> handlePandaUpgrade(player);
+                case HoeUpgradeGUI.SLOT_PANDA      -> handlePandaClick(player);
             }
             return;
         }
 
-        // ── amount sub-menu ───────────────────────────────────────────────
+        // ── amount sub-menu ───────────────────────────────────────────────────
         if (title.contains(HoeUpgradeAmountGUI.TITLE_PREFIX)) {
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
@@ -95,10 +95,11 @@ public class HoeUpgradeListener implements Listener {
             }
 
             String type;
-            if      (title.contains("Crop"))       type = "crop";
-            else if (title.contains("XP"))         type = "xp";
-            else if (title.contains("Key Finder")) type = "keyfinder";
-            else                                   type = "token";
+            if      (title.contains("Crop"))         type = "crop";
+            else if (title.contains("XP"))           type = "xp";
+            else if (title.contains("Key Finder"))   type = "keyfinder";
+            else if (title.contains("Panda"))        type = "panda";
+            else                                     type = "token";
 
             int amount;
             if      (slot == HoeUpgradeAmountGUI.SLOT_PLUS1)  amount = 1;
@@ -106,16 +107,18 @@ public class HoeUpgradeListener implements Listener {
             else if (slot == HoeUpgradeAmountGUI.SLOT_PLUS25) amount = 25;
             else if (slot == HoeUpgradeAmountGUI.SLOT_PLUS50) amount = 50;
             else if (slot == HoeUpgradeAmountGUI.SLOT_MAX) {
-                int max     = switch (type) {
+                int max = switch (type) {
                     case "crop"      -> HoeUpgradeManager.MAX_CROP_LEVEL;
                     case "xp"        -> HoeUpgradeManager.MAX_XP_LEVEL;
                     case "keyfinder" -> HoeUpgradeManager.MAX_KEY_FINDER_LEVEL;
+                    case "panda"     -> HoeUpgradeManager.MAX_PANDA_LEVEL;
                     default          -> HoeUpgradeManager.MAX_TOKEN_LEVEL;
                 };
                 int current = switch (type) {
                     case "crop"      -> plugin.getHoeUpgradeManager().getCropLevel(player);
                     case "xp"        -> plugin.getHoeUpgradeManager().getXpLevel(player);
                     case "keyfinder" -> plugin.getHoeUpgradeManager().getKeyFinderLevel(player);
+                    case "panda"     -> plugin.getHoeUpgradeManager().getPandaLevel(player);
                     default          -> plugin.getHoeUpgradeManager().getTokenLevel(player);
                 };
                 amount = max - current;
@@ -129,7 +132,19 @@ public class HoeUpgradeListener implements Listener {
         }
     }
 
-    // ── upgrade handlers ──────────────────────────────────────────────────
+    // ── upgrade handlers ─────────────────────────────────────────────────
+
+    private void handlePandaClick(Player player) {
+        HoeUpgradeManager mgr = plugin.getHoeUpgradeManager();
+        if (!mgr.canUnlockPanda(player)) {
+            MessageUtil.sendRaw(player, MessageUtil.PREFIX
+                    + " <red>🔒 Panda Roller requires <white>Prestige "
+                    + HoeUpgradeManager.PANDA_REQUIRED_PRESTIGE + "</white> to unlock!</red>");
+            return;
+        }
+        // Open the amount GUI — same as other upgrades
+        new HoeUpgradeAmountGUI(plugin, "panda").open(player);
+    }
 
     private void handleBulkUpgrade(Player player, String type, int requestedAmount) {
         HoeUpgradeManager mgr = plugin.getHoeUpgradeManager();
@@ -138,6 +153,7 @@ public class HoeUpgradeListener implements Listener {
             case "crop"      -> mgr.upgradeCropBulk(player, requestedAmount);
             case "xp"        -> mgr.upgradeXpBulk(player, requestedAmount);
             case "keyfinder" -> mgr.upgradeKeyFinderBulk(player, requestedAmount);
+            case "panda"     -> mgr.upgradePandaBulk(player, requestedAmount);
             default          -> mgr.upgradeTokenBulk(player, requestedAmount);
         };
 
@@ -151,28 +167,39 @@ public class HoeUpgradeListener implements Listener {
             case "crop"      -> mgr.getCropLevel(player);
             case "xp"        -> mgr.getXpLevel(player);
             case "keyfinder" -> mgr.getKeyFinderLevel(player);
+            case "panda"     -> mgr.getPandaLevel(player);
             default          -> mgr.getTokenLevel(player);
         };
         String grad = switch (type) {
             case "crop"      -> "<gradient:#f6d365:#fda085>";
             case "xp"        -> "<gradient:#7afcff:#00c2ff>";
             case "keyfinder" -> "<gradient:#a18cd1:#fbc2eb>";
+            case "panda"     -> "<gradient:#a8e6cf:#88d8b0>";
             default          -> "<gradient:#ffd86f:#fc6262>";
         };
         String name = switch (type) {
             case "crop"      -> "Crop Harvest";
             case "xp"        -> "XP Boost";
             case "keyfinder" -> "Key Finder";
+            case "panda"     -> "Panda Roller";
             default          -> "Token Boost";
         };
 
+        String extra = "";
+        if (type.equals("panda")) {
+            PandaRollerSkill skill = (PandaRollerSkill) SkillRegistry.get("panda_roller");
+            extra = " <gray>(" + skill.spawnChancePct(newLevel) + "% spawn · "
+                    + skill.rewardBonusPct(newLevel) + "% bonus)</gray>";
+        }
+
         String partial = bought < requestedAmount
-                ? " <yellow>(only " + bought + " level" + (bought == 1 ? "" : "s") + " – out of Tokens)</yellow>"
+                ? " <yellow>(only " + bought + " level" + (bought == 1 ? "" : "s") + " — out of Tokens)</yellow>"
                 : "";
 
         MessageUtil.sendRaw(player,
                 MessageUtil.PREFIX + " " + grad + name + " → Level " + newLevel + "!</gradient>"
-                + " <gray>(+" + bought + " level" + (bought == 1 ? "" : "s") + ")</gray>" + partial);
+                + " <gray>(+" + bought + " level" + (bought == 1 ? "" : "s") + ")</gray>"
+                + extra + partial);
 
         new HoeUpgradeAmountGUI(plugin, type).open(player);
     }
@@ -195,40 +222,6 @@ public class HoeUpgradeListener implements Listener {
                     MessageUtil.PREFIX + " <gradient:#c0c0c0:#ffffff>Hoe upgraded to Level "
                     + mgr.getHoeLevel(player) + "!</gradient>"
                     + " <gray>(-$" + NumberUtil.format(cost) + ")</gray>");
-            gui.open(player);
-        }
-    }
-
-    private void handlePandaUpgrade(Player player) {
-        HoeUpgradeManager mgr = plugin.getHoeUpgradeManager();
-
-        if (!mgr.canUnlockPanda(player)) {
-            MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>🔒 Panda Roller requires <white>Prestige "
-                    + HoeUpgradeManager.PANDA_REQUIRED_PRESTIGE + "</white> to unlock!</red>");
-            return;
-        }
-        int lvl = mgr.getPandaLevel(player);
-        if (lvl >= HoeUpgradeManager.MAX_PANDA_LEVEL) {
-            MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <gold>Panda Roller is already max level!</gold>");
-            return;
-        }
-        int  cost   = mgr.getPandaCost(lvl + 1);
-        long tokens = plugin.getCurrencyManager().getTokens(player);
-        if (tokens < cost) {
-            MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>Not enough Tokens. Need: <white>" + NumberUtil.format(cost) + "</white></red>");
-            return;
-        }
-        if (mgr.upgradePanda(player)) {
-            int newLvl = mgr.getPandaLevel(player);
-            int spawnPct = newLvl;
-            int bonusPct = (int) Math.round(mgr.getPandaRewardBonus(player) * 100);
-            MessageUtil.sendRaw(player,
-                    MessageUtil.PREFIX + " <gradient:#a8e6cf:#88d8b0>🐼 Panda Roller → Level "
-                    + newLvl + "!</gradient>"
-                    + " <gray>(" + spawnPct + "% spawn · +" + bonusPct + "% bonus)</gray>"
-                    + " <gray>(-" + NumberUtil.format(cost) + " Tokens)</gray>");
             gui.open(player);
         }
     }
