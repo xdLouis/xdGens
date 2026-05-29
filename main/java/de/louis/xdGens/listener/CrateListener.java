@@ -30,6 +30,11 @@ public class CrateListener implements Listener {
 
     private final Main plugin;
 
+    // Exact plain-text titles produced by MessageUtil.parse(...)
+    // CratesGUI title:       "🎁 Crates"
+    // CratePreviewGUI title: "🔍 <CrateDisplay> Crate"
+    private static final String CRATES_MENU_TITLE = "\uD83C\uDF81 Crates";
+
     public CrateListener(Main plugin) {
         this.plugin = plugin;
     }
@@ -42,7 +47,8 @@ public class CrateListener implements Listener {
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
         // ── Crates main menu ─────────────────────────────────────────
-        if (title.contains("Crates") && !title.contains("Preview") && !title.contains("Crate")) {
+        // Use exact match: plain title is "🎁 Crates" (no crate name appended)
+        if (title.equals(CRATES_MENU_TITLE) || title.endsWith("Crates")) {
             event.setCancelled(true);
             int slot = event.getSlot();
 
@@ -71,7 +77,9 @@ public class CrateListener implements Listener {
         }
 
         // ── Preview GUI ──────────────────────────────────────────────
-        if (title.contains("Crate") && !title.contains("Crates")) {
+        // Preview titles end with "<CrateDisplay> Crate", e.g. "🔍 Common Crate"
+        // They always contain " Crate" but NOT the plural "Crates"
+        if (title.contains(" Crate") && !title.endsWith("Crates")) {
             event.setCancelled(true);
             CrateType previewType = CratePreviewGUI.resolveFromTitle(title);
             if (previewType == null) return;
@@ -87,7 +95,6 @@ public class CrateListener implements Listener {
                 }
                 case CratePreviewGUI.SLOT_PREV -> gui.open(player, curCat, curPage - 1);
                 case CratePreviewGUI.SLOT_NEXT -> gui.open(player, curCat, curPage + 1);
-                // category tabs
                 case CratePreviewGUI.SLOT_CAT_1 -> gui.open(player, CratePreviewGUI.Category.POUCHES,     0);
                 case CratePreviewGUI.SLOT_CAT_2 -> gui.open(player, CratePreviewGUI.Category.TAGS,        0);
                 case CratePreviewGUI.SLOT_CAT_3 -> gui.open(player, CratePreviewGUI.Category.NAME_COLORS, 0);
@@ -153,7 +160,6 @@ public class CrateListener implements Listener {
             return;
         }
 
-        // Aggregate results
         long totalMoney  = 0;
         long totalXp     = 0;
         long totalTokens = 0;
@@ -165,7 +171,6 @@ public class CrateListener implements Listener {
 
             CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
 
-            // tally pouches
             PouchTier tier = result.pouchTier();
             tierCounts.merge(tier, 1, Integer::sum);
 
@@ -180,7 +185,6 @@ public class CrateListener implements Listener {
                 }
             }
 
-            // give voucher if dropped
             if (result.hasVoucher()) {
                 giveVoucher(player, result);
                 vouchers++;
@@ -189,10 +193,9 @@ public class CrateListener implements Listener {
 
         playCrateSound(player);
 
-        // summary message
         StringBuilder sb = new StringBuilder();
         sb.append(MessageUtil.PREFIX).append(" ")
-          .append(type.getGradient()).append("<bold>" + type.getDisplayName() + " Crate</bold></gradient>")
+          .append(type.getGradient()).append("<bold>").append(type.getDisplayName()).append(" Crate</bold></gradient>")
           .append(" <gray>\u00d7 ").append(total).append(" opened</gray>");
 
         sb.append("\n<dark_gray>\u250c\u2500 Pouches redeemed");
