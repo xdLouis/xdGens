@@ -63,24 +63,18 @@ public class HoeUpgradeAmountGUI {
         ItemStack gray  = pane(Material.GRAY_STAINED_GLASS_PANE);
         ItemStack light = pane(Material.LIGHT_GRAY_STAINED_GLASS_PANE);
 
-        // top row
-        for (int i = 0; i <= 8; i++)  inv.setItem(i, dark.clone());
-        // info row sides
+        for (int i = 0; i <= 8; i++)   inv.setItem(i, dark.clone());
         inv.setItem(9,  dark.clone());
         inv.setItem(10, gray.clone());
         inv.setItem(11, gray.clone());
         inv.setItem(12, gray.clone());
-        // slot 13 = info item
         inv.setItem(14, gray.clone());
         inv.setItem(15, gray.clone());
         inv.setItem(16, gray.clone());
         inv.setItem(17, dark.clone());
-        // separator row
         for (int i = 18; i <= 26; i++) inv.setItem(i, dark.clone());
-        // button row sides
         inv.setItem(27, dark.clone());
         inv.setItem(34, dark.clone());
-        // bottom row
         for (int i = 36; i <= 44; i++) inv.setItem(i, dark.clone());
         inv.setItem(37, light.clone());
         inv.setItem(38, light.clone());
@@ -88,23 +82,19 @@ public class HoeUpgradeAmountGUI {
         inv.setItem(41, light.clone());
         inv.setItem(42, light.clone());
         inv.setItem(43, light.clone());
-        // middle filler in button row (slot 35 doesn't exist, we already capped at 34)
 
-        int     current      = currentLevel(player);
-        int     max          = maxLevel();
-        long    tokens       = plugin.getCurrencyManager().getTokens(player);
-        boolean maxed        = current >= max;
-        int     affordable   = computeAffordable(current, max, tokens);
+        int     current    = currentLevel(player);
+        int     max        = maxLevel();
+        long    tokens     = plugin.getCurrencyManager().getTokens(player);
+        boolean maxed      = current >= max;
+        int     affordable = computeAffordable(current, max, tokens);
 
-        // ── info item ────────────────────────────────────────────────────
-        inv.setItem(SLOT_INFO, buildInfoItem(player, current, max, tokens, affordable));
-
-        // ── buy buttons ──────────────────────────────────────────────────
-        inv.setItem(SLOT_PLUS1,  buildAmountItem(player, 1,  current, max, tokens, maxed));
-        inv.setItem(SLOT_PLUS5,  buildAmountItem(player, 5,  current, max, tokens, maxed));
-        inv.setItem(SLOT_PLUS10, buildAmountItem(player, 10, current, max, tokens, maxed));
-        inv.setItem(SLOT_PLUS25, buildAmountItem(player, 25, current, max, tokens, maxed));
-        inv.setItem(SLOT_PLUS50, buildAmountItem(player, 50, current, max, tokens, maxed));
+        inv.setItem(SLOT_INFO,   buildInfoItem(current, max, tokens, affordable));
+        inv.setItem(SLOT_PLUS1,  buildAmountItem(1,  current, max, tokens, maxed));
+        inv.setItem(SLOT_PLUS5,  buildAmountItem(5,  current, max, tokens, maxed));
+        inv.setItem(SLOT_PLUS10, buildAmountItem(10, current, max, tokens, maxed));
+        inv.setItem(SLOT_PLUS25, buildAmountItem(25, current, max, tokens, maxed));
+        inv.setItem(SLOT_PLUS50, buildAmountItem(50, current, max, tokens, maxed));
         inv.setItem(SLOT_MAX,    buildMaxItem(current, max, tokens, affordable, maxed));
         inv.setItem(SLOT_BACK,   buildBackItem());
 
@@ -115,7 +105,7 @@ public class HoeUpgradeAmountGUI {
     //  Info item (slot 13)
     // ────────────────────────────────────────────────────────────────────
 
-    private ItemStack buildInfoItem(Player player, int current, int max, long tokens, int affordable) {
+    private ItemStack buildInfoItem(int current, int max, long tokens, int affordable) {
         ItemStack item = new ItemStack(upgradeIcon());
         ItemMeta  meta = item.getItemMeta();
         meta.displayName(MessageUtil.parse(gradient() + "<bold>" + upgradeLabel() + "</bold></gradient>"));
@@ -125,7 +115,7 @@ public class HoeUpgradeAmountGUI {
         lore.add(MessageUtil.parse("<dark_gray>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"));
         lore.add(MessageUtil.parse("<gray>Current Level  <white>" + current + " <dark_gray>/ " + max));
         lore.add(MessageUtil.parse("<gray>Your Tokens    " + (tokens > 0 ? "<gold>" : "<red>") + NumberUtil.format(tokens)));
-        if (!current.equals(max)) {
+        if (current != max) {
             long nextCost = nextCost(current);
             lore.add(MessageUtil.parse("<gray>Next Level     <white>" + NumberUtil.format(nextCost) + " <dark_gray>Tokens"));
             lore.add(Component.empty());
@@ -150,8 +140,7 @@ public class HoeUpgradeAmountGUI {
     //  Amount buttons (+1 / +5 / +10 / +25 / +50)
     // ────────────────────────────────────────────────────────────────────
 
-    private ItemStack buildAmountItem(Player player, int amount, int current, int max,
-                                      long tokens, boolean maxed) {
+    private ItemStack buildAmountItem(int amount, int current, int max, long tokens, boolean maxed) {
         int  realAmount = Math.min(amount, max - current);
         long cost       = 0;
         if (!maxed && realAmount > 0)
@@ -160,7 +149,7 @@ public class HoeUpgradeAmountGUI {
         boolean canAfford = !maxed && realAmount > 0 && tokens >= cost;
         boolean possible  = !maxed && realAmount > 0;
 
-        Material mat = canAfford ? amountMaterialGreen(amount) : amountMaterialRed(amount);
+        Material  mat  = canAfford ? amountMaterialGreen(amount) : amountMaterialRed(amount);
         ItemStack item = new ItemStack(mat);
         ItemMeta  meta = item.getItemMeta();
 
@@ -209,12 +198,12 @@ public class HoeUpgradeAmountGUI {
             long nextCost = nextCost(current);
             lore.add(MessageUtil.parse("<gray>Need   <white>" + NumberUtil.format(nextCost) + " Tokens"));
         } else {
-            // compute total cost for affordable levels
             long cost = 0;
             for (int i = 1; i <= affordable; i++) cost += Math.max(0, nextCost(current + i - 1));
             boolean isRealMax = (current + affordable) >= max;
 
-            meta.displayName(MessageUtil.parse(gradient() + "<bold>MAX  <white>(" + affordable + " level" + (affordable == 1 ? "" : "s") + ")</white></bold></gradient>"));
+            meta.displayName(MessageUtil.parse(gradient() + "<bold>MAX  <white>(" + affordable
+                    + " level" + (affordable == 1 ? "" : "s") + ")</white></bold></gradient>"));
             lore.add(MessageUtil.parse("<dark_gray>" + current + " \u27a1 " + (current + affordable)
                     + (isRealMax ? " <gold>(max!)" : "")));
             lore.add(Component.empty());
@@ -222,7 +211,8 @@ public class HoeUpgradeAmountGUI {
             lore.add(MessageUtil.parse("<gray>Cost     <white>" + NumberUtil.format(cost) + " Tokens"));
             lore.add(MessageUtil.parse("<gray>Yours    <green>" + NumberUtil.format(tokens)));
             lore.add(Component.empty());
-            lore.add(MessageUtil.parse("<green><bold>\u25BA Click to buy " + affordable + " level" + (affordable == 1 ? "" : "s")));
+            lore.add(MessageUtil.parse("<green><bold>\u25BA Click to buy " + affordable
+                    + " level" + (affordable == 1 ? "" : "s")));
         }
 
         meta.lore(lore);
@@ -249,7 +239,6 @@ public class HoeUpgradeAmountGUI {
     //  Helpers
     // ────────────────────────────────────────────────────────────────────
 
-    /** How many levels can the player afford starting from currentLevel? (capped at max) */
     private int computeAffordable(int current, int max, long tokens) {
         long budget    = tokens;
         int  remaining = max - current;
@@ -329,7 +318,6 @@ public class HoeUpgradeAmountGUI {
         };
     }
 
-    /** Green materials for affordable buttons */
     private Material amountMaterialGreen(int amount) {
         return switch (amount) {
             case 1  -> Material.LIME_DYE;
@@ -341,7 +329,6 @@ public class HoeUpgradeAmountGUI {
         };
     }
 
-    /** Red/gray materials for unaffordable buttons */
     private Material amountMaterialRed(int amount) {
         return switch (amount) {
             case 1  -> Material.RED_DYE;
