@@ -7,3 +7,33 @@ load: POSTWORLD
 
 description: Classic Gens-Server Plugin
 author: xdLouis
+
+commands:
+  testfield:
+    description: Create a test wheat field
+  workstation:
+    description: Get a wheat workstation
+  diamond:
+    description: Get one diamond
+  prestige:
+    description: Prestige once you reach the max level
+  sell:
+    description: Sell all farm items in your inventory
+  shop:
+    description: Open the xdGens shop
+  crates:
+    description: Open the crates menu
+  cosmetics:
+    description: Open the cosmetics menu (tags & colors)
+    usage: /cosmetics [tags|colors]
+  trash:
+    description: Open a trash bin to delete items
+  xdadmin:
+    description: Admin command for xdGens
+    usage: /xdadmin
+    permission: xdgens.admin
+
+permissions:
+  xdgens.admin:
+    description: Zugriff auf Admin-Testcommands
+    default: op

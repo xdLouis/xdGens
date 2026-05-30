@@ -4,23 +4,28 @@
 
 # ── Weizenfeld ──────────────────────────────
 field:
-  world: world          # Name der Welt
-  center-x: 0          # Mittelpunkt X
-  center-z: 0          # Mittelpunkt Z
-  radius: 25           # Feld = (2*radius+1) x (2*radius+1) = 51x51 Blöcke
-  y: 64                # Y-Koordinate des Farmland-Blocks
-  regrow-delay-ticks: 100   # Wie lange bis Weizen nachwächst (20 Ticks = 1 Sek)
+  world: world
+  center-x: 0
+  center-z: 0
+  radius: 25
+  y: 64
+  regrow-delay-ticks: 100
 
 # ── Weizen Rewards ──────────────────────────
 rewards:
   wheat:
-    money:
-      min: 5.0
-      max: 20.0
     tokens:
-      min: 1
-      max: 5
-    gems:
-      chance: 0.05     # 5% Chance pro Ernte
-      min: 1
-      max: 2
+      min: 3
+      max: 10
+    xp:
+      min: 8.0
+      max: 16.0
+
+# ── Verkaufspreise ──────────────────────────
+sell:
+  wheat:
+    price: 30.0
+  compressed_wheat_block:
+    price: 2200.0
+  enchanted_wheat_bale:
+    price: 180000.0
