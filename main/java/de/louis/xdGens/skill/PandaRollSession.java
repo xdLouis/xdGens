@@ -2,6 +2,7 @@ package de.louis.xdGens.skill;
 
 import de.louis.xdGens.main.Main;
 import de.louis.xdGens.util.MessageUtil;
+import de.louis.xdGens.util.NumberUtil;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
@@ -49,7 +50,7 @@ public class PandaRollSession {
     private static final double BASE_XP_REWARD = 2000.0;
 
     /** How often (in ticks) the panda tries to break wheat. */
-    private static final long WHEAT_BREAK_INTERVAL = 20L; // every 1 s
+    private static final long WHEAT_BREAK_INTERVAL = 20L;
     /** How many wheat blocks it breaks per interval. */
     private static final int  WHEAT_BREAK_COUNT    = 6;
     /** Search radius (blocks) around the panda for wheat. */
@@ -57,7 +58,7 @@ public class PandaRollSession {
     /** Wheat re-grow delay in ticks. */
     private static final long REGROW_DELAY         = 100L;
     /** How often (in ticks) the panda picks a new wander destination. */
-    private static final int  WANDER_INTERVAL      = 60; // every 3 s
+    private static final int  WANDER_INTERVAL      = 60;
 
     private final Main   plugin;
     private final Player player;
@@ -78,7 +79,7 @@ public class PandaRollSession {
 
     public static void addHarvest(UUID uuid, long tokens, double xp) { /* no-op */ }
 
-    // ── Session lifecycle ─────────────────────────────────────────────────────────────
+    // ── Session lifecycle ──────────────────────────────────────────────────────
 
     public void start() {
         if (ACTIVE.containsKey(player.getUniqueId())) return;
@@ -136,7 +137,7 @@ public class PandaRollSession {
         }.runTaskTimer(plugin, 0L, 4L);
     }
 
-    // ── Wandering ────────────────────────────────────────────────────────────────────
+    // ── Wandering ────────────────────────────────────────────────────────────
 
     private void wander(Location center) {
         if (panda == null || !panda.isValid()) return;
@@ -151,7 +152,7 @@ public class PandaRollSession {
         panda.getPathfinder().moveTo(new Location(world, tx + 0.5, ty, tz + 0.5), 1.0);
     }
 
-    // ── Wheat breaking ──────────────────────────────────────────────────────────────────
+    // ── Wheat breaking ─────────────────────────────────────────────────────────
 
     private void breakNearbyWheat(Location center) {
         World world = center.getWorld();
@@ -205,7 +206,7 @@ public class PandaRollSession {
         }, delay);
     }
 
-    // ── Particles ────────────────────────────────────────────────────────────────────
+    // ── Particles ─────────────────────────────────────────────────────────────
 
     private void spawnCropParticles(Location center) {
         World world = center.getWorld();
@@ -227,7 +228,7 @@ public class PandaRollSession {
         }
     }
 
-    // ── Finish / reward ──────────────────────────────────────────────────────────────────
+    // ── Finish / reward ────────────────────────────────────────────────────────
 
     private void finish() {
         ACTIVE.remove(player.getUniqueId());
@@ -242,17 +243,21 @@ public class PandaRollSession {
         // XP is flat — independent of panda level to prevent prestige skipping
         double flatXp = BASE_XP_REWARD * prestigeMult;
 
+        plugin.getCurrencyManager().addTokens(player, (int) flatTokens);
+        plugin.getProgressionManager().addXp(player, flatXp);
+
+        // Feed the ActionBar accumulator so tokens + XP show up in the running counter
+        plugin.getActionBarManager().addHarvest(player, flatTokens, flatXp);
+
         player.playSound(player.getLocation(), Sound.ENTITY_PANDA_SNEEZE, 1f, 1.0f);
         player.spawnParticle(Particle.HAPPY_VILLAGER,
                 player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0);
 
-        plugin.getCurrencyManager().addTokens(player, (int) flatTokens);
-        plugin.getProgressionManager().addXp(player, flatXp);
-
+        // NumberUtil.format() converts raw numbers to readable suffixes: 19500 → "19.5k"
         MessageUtil.sendRaw(player, MessageUtil.PREFIX
                 + " <gradient:#a8e6cf:#88d8b0>\uD83D\uDC3C Panda farmed for you!</gradient>"
-                + " <yellow>+" + flatTokens + " Tokens</yellow>"
-                + " <gray>\u00b7</gray> <aqua>+" + String.format("%.0f", flatXp) + " XP</aqua>"
+                + " <yellow>+" + NumberUtil.format(flatTokens) + " Tokens</yellow>"
+                + " <gray>\u00b7</gray> <aqua>+" + NumberUtil.format(flatXp) + " XP</aqua>"
                 + " <dark_gray>(Lv " + pandaLevel + " \u00b7 Prestige \u00d7"
                 + String.format("%.1f", prestigeMult) + ")");
     }
