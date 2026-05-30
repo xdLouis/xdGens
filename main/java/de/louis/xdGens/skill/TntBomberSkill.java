@@ -6,6 +6,8 @@ package de.louis.xdGens.skill;
  * Spawn chance:  At lv 1 = 0.01% (1 in 10 000).
  *               At lv 1000 = 1.25% (1 in 80).
  *               Curve: base + (max-base) * (level/1000)^0.7
+ *
+ * Upgrade cost uses EXP_SCALE 1.007 (consistent with all other upgrades).
  */
 public class TntBomberSkill implements Skill {
 
@@ -22,8 +24,9 @@ public class TntBomberSkill implements Skill {
 
     @Override
     public int upgradeCost(int currentLevel) {
+        // EXP_SCALE 1.007 — consistent with HoeUpgradeManager and all other upgrades
         return (int) Math.round(500.0 * (1.0 + 0.20 * (currentLevel + 1))
-                * Math.pow(1.034, currentLevel));
+                * Math.pow(1.007, currentLevel));
     }
 
     @Override

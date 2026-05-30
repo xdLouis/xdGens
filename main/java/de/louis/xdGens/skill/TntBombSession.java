@@ -43,6 +43,11 @@ public class TntBombSession {
             int    crops        = totalCrops.get();
             double prestigeMult = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
 
+            // Feed ActionBar so the running counter picks up TNT tokens
+            if (tokens > 0) {
+                plugin.getActionBarManager().addHarvest(player, tokens, 0.0);
+            }
+
             if (crops == 0) {
                 MessageUtil.sendRaw(player, MessageUtil.PREFIX
                         + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 TNT Bomber finished</gradient>"
