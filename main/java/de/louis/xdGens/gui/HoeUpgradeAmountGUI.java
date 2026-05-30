@@ -20,7 +20,7 @@ public class HoeUpgradeAmountGUI {
 
     public static final String TITLE_PREFIX = "Buy Upgrade \u2013 ";
 
-    // ── slots (5 rows = 45) ───────────────────────────────────────────────
+    // ── slots (5 rows = 45) ─────────────────────────────────────────
     //  Row 0 (0-8)   : top border
     //  Row 1 (9-17)  : info bar (border | info-item | border)
     //  Row 2 (18-26) : separator
@@ -58,7 +58,7 @@ public class HoeUpgradeAmountGUI {
                 MessageUtil.parse(gradient() + "<bold>" + TITLE_PREFIX + label + "</bold></gradient>")
         );
 
-        // ── borders ──────────────────────────────────────────────────────
+        // ── borders ────────────────────────────────────────────────────
         ItemStack dark  = pane(Material.BLACK_STAINED_GLASS_PANE);
         ItemStack gray  = pane(Material.GRAY_STAINED_GLASS_PANE);
         ItemStack light = pane(Material.LIGHT_GRAY_STAINED_GLASS_PANE);
@@ -101,9 +101,9 @@ public class HoeUpgradeAmountGUI {
         player.openInventory(inv);
     }
 
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
     //  Info item (slot 13)
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
 
     private ItemStack buildInfoItem(int current, int max, long tokens, int affordable) {
         ItemStack item = new ItemStack(upgradeIcon());
@@ -136,9 +136,9 @@ public class HoeUpgradeAmountGUI {
         return item;
     }
 
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
     //  Amount buttons (+1 / +5 / +10 / +25 / +50)
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
 
     private ItemStack buildAmountItem(int amount, int current, int max, long tokens, boolean maxed) {
         int  realAmount = Math.min(amount, max - current);
@@ -174,9 +174,9 @@ public class HoeUpgradeAmountGUI {
         return item;
     }
 
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
     //  MAX button — shows how many levels you can actually afford
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
 
     private ItemStack buildMaxItem(int current, int max, long tokens, int affordable, boolean maxed) {
         ItemStack item = new ItemStack(affordable > 0 ? Material.NETHER_STAR : Material.COAL);
@@ -217,9 +217,9 @@ public class HoeUpgradeAmountGUI {
         return item;
     }
 
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
     //  Back button
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
 
     private ItemStack buildBackItem() {
         ItemStack item = new ItemStack(Material.BARRIER);
@@ -231,22 +231,23 @@ public class HoeUpgradeAmountGUI {
         return item;
     }
 
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
     //  Helpers
-    // ────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────
 
     /**
      * Returns the total cost for buying {@code count} levels starting from {@code fromLevel}.
      * Returns -1 if any individual level cost is invalid or would overflow.
+     * Costs are capped at MAX_LEVEL_COST per level, so summing is always safe.
      */
     private long totalCost(int fromLevel, int count) {
         long total = 0;
         for (int i = 0; i < count; i++) {
             long c = nextCost(fromLevel + i);
-            // c == -1 means out-of-range; c == COST_OVERFLOW means astronomically expensive
-            if (c < 0 || c == HoeUpgradeManager.COST_OVERFLOW) return -1;
+            if (c < 0) return -1;
             total += c;
-            // guard against summing multiple large values overflowing long
+            // guard: summing MAX_LEVEL_COST * 1000 = 1e15, still fits in long,
+            // but guard anyway in case someone passes a huge count
             if (total < 0) return -1;
         }
         return total;
@@ -257,7 +258,7 @@ public class HoeUpgradeAmountGUI {
         int  remaining = max - current;
         for (int i = 0; i < remaining; i++) {
             long c = nextCost(current + i);
-            if (c < 0 || c == HoeUpgradeManager.COST_OVERFLOW || budget < c) return i;
+            if (c < 0 || budget < c) return i;
             budget -= c;
         }
         return remaining;
