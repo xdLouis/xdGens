@@ -8,6 +8,7 @@ import de.louis.xdGens.manager.CrateManager;
 import de.louis.xdGens.util.MessageUtil;
 import de.louis.xdGens.util.NumberUtil;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -20,7 +21,9 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 public class CrateListener implements Listener {
@@ -103,6 +106,12 @@ public class CrateListener implements Listener {
         boolean isNew = autoRedeemOrStoreVoucher(player, result);
         playCrateSound(player);
         sendOpenMessage(player, type, result, isNew);
+
+        // Broadcast new cosmetic to all players
+        if (isNew && result.rolledCosmetic() != null) {
+            broadcastCosmetics(player, type, List.of(result.rolledCosmetic()));
+        }
+
         new CratesGUI(plugin).open(player);
     }
 
@@ -117,6 +126,7 @@ public class CrateListener implements Listener {
         long totalMoney = 0, totalXp = 0, totalTokens = 0;
         int  newCosmetics = 0, dupVouchers = 0;
         Map<PouchTier, Integer> tierCounts = new EnumMap<>(PouchTier.class);
+        List<CrateReward> newCosmeticList  = new ArrayList<>();
 
         for (int i = 0; i < total; i++) {
             if (!plugin.getVirtualKeyManager().consumeKey(player, type)) break;
@@ -134,7 +144,12 @@ public class CrateListener implements Listener {
             }
             if (result.hasVoucher()) {
                 boolean isNew = autoRedeemOrStoreVoucher(player, result);
-                if (isNew) newCosmetics++; else dupVouchers++;
+                if (isNew) {
+                    newCosmetics++;
+                    newCosmeticList.add(result.rolledCosmetic());
+                } else {
+                    dupVouchers++;
+                }
             }
         }
 
@@ -152,10 +167,51 @@ public class CrateListener implements Listener {
             tierCounts.forEach((tier, cnt) -> sb.append(tier.getDisplayName()).append(" <dark_gray>x").append(cnt).append("</dark_gray>  "));
         }
         if (newCosmetics > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <green>\u2728 ").append(newCosmetics).append(" new cosmetic(s) auto-unlocked!</green>");
-        if (dupVouchers  > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <yellow>").append(dupVouchers).append(" duplicate(s) stored → cash out via /cosmetics</yellow>");
+        if (dupVouchers  > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <yellow>").append(dupVouchers).append(" duplicate(s) stored \u2192 cash out via /cosmetics</yellow>");
         sb.append("\n<dark_gray>\u2514\u2500</dark_gray>");
         MessageUtil.sendRaw(player, sb.toString());
+
+        // Broadcast all newly unlocked cosmetics in one message
+        if (!newCosmeticList.isEmpty()) {
+            broadcastCosmetics(player, type, newCosmeticList);
+        }
+
         new CratesGUI(plugin).open(player);
+    }
+
+    /**
+     * Sends a server-wide broadcast when a player unlocks one or more new cosmetics.
+     * Multiple cosmetics (multi-open) are listed in a single message.
+     */
+    private void broadcastCosmetics(Player player, CrateType crateType, List<CrateReward> cosmetics) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<gold>\uD83C\uDF89 <white><bold>")
+          .append(player.getName())
+          .append("</bold></white> <gold>hat ein Cosmetic aus einer</gold> ")
+          .append(crateType.getGradient()).append("<bold>").append(crateType.getDisplayName())
+          .append(" Crate</bold></gradient> <gold>gezogen!</gold>")
+          .append("\n");
+
+        if (cosmetics.size() == 1) {
+            CrateReward r = cosmetics.get(0);
+            sb.append("<dark_gray>\u2514</dark_gray> ")
+              .append(r.tierLabel())
+              .append(" <white>").append(r.getDisplayName()).append("</white>");
+        } else {
+            for (int i = 0; i < cosmetics.size(); i++) {
+                CrateReward r = cosmetics.get(i);
+                boolean last  = i == cosmetics.size() - 1;
+                sb.append(last ? "<dark_gray>\u2514</dark_gray> " : "<dark_gray>\u251c</dark_gray> ")
+                  .append(r.tierLabel())
+                  .append(" <white>").append(r.getDisplayName()).append("</white>");
+                if (!last) sb.append("\n");
+            }
+        }
+
+        String msg = sb.toString();
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            MessageUtil.sendRaw(online, msg);
+        }
     }
 
     /**
