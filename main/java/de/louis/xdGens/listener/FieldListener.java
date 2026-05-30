@@ -5,6 +5,7 @@ import de.louis.xdGens.main.Main;
 import de.louis.xdGens.manager.CurrencyManager;
 import de.louis.xdGens.manager.HoeUpgradeManager;
 import de.louis.xdGens.skill.PandaRollSession;
+import de.louis.xdGens.skill.ShadowCloneSession;
 import de.louis.xdGens.skill.TntBombSession;
 import de.louis.xdGens.util.CustomItemUtil;
 import de.louis.xdGens.util.HoeUtil;
@@ -68,8 +69,14 @@ public class FieldListener implements Listener {
         int    baseTokens         = Rng.between(tokenMin, tokenMax);
         double hoeMultiplier      = plugin.getHoeUpgradeManager().getTokenMultiplier(player);
         double prestigeMultiplier = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
-        long   finalTokens        = Math.round(baseTokens * hoeMultiplier * prestigeMultiplier);
-        double finalXp            = Rng.between(xpMin, xpMax) * plugin.getHoeUpgradeManager().getXpMultiplier(player);
+
+        // Shadow Clone: ×4 multiplier on tokens AND xp while active
+        double shadowMult = ShadowCloneSession.isActive(player.getUniqueId()) ? 4.0 : 1.0;
+
+        long   finalTokens = Math.round(baseTokens * hoeMultiplier * prestigeMultiplier * shadowMult);
+        double finalXp     = Rng.between(xpMin, xpMax)
+                * plugin.getHoeUpgradeManager().getXpMultiplier(player)
+                * shadowMult;
 
         int totalCrops = 1 + plugin.getHoeUpgradeManager().getCropBonus(player);
         int stored     = plugin.getBackpackManager().addWheat(player, totalCrops);

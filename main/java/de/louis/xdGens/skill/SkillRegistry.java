@@ -15,6 +15,7 @@ public final class SkillRegistry {
     static {
         register(new PandaRollerSkill());
         register(new TntBomberSkill());
+        register(new ShadowCloneSkill());
     }
 
     public static void register(Skill skill) {

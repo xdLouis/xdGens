@@ -59,6 +59,7 @@ public final class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CosmeticVoucherListener(this), this);
         getServer().getPluginManager().registerEvents(new CosmeticsGUIListener(this), this);
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+        getServer().getPluginManager().registerEvents(new HoeRightClickListener(this), this);
         getServer().getPluginManager().registerEvents(lobbyProtectionListener, this);
 
         // Trash

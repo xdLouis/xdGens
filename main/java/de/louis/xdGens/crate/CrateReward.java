@@ -3,10 +3,13 @@ package de.louis.xdGens.crate;
 import org.bukkit.Material;
 
 /**
- * Tier values:  0 = COMMON  |  1 = RARE  |  2 = VERY_RARE  |  3 = LEGENDARY
+ * Tier values:  0 = COMMON  |  1 = RARE  |  2 = EPIC  |  3 = LEGENDARY
  *
- * Cosmetic weights are intentionally tiny (0.01 – 0.09).
- * Tier-3 cosmetics ONLY from Legendary crates.
+ * Weight guide:
+ *   T0 COMMON     0.05 – 0.09
+ *   T1 RARE       0.03 – 0.08
+ *   T2 EPIC       0.005 – 0.012   (roughly 4-5× rarer than Common)
+ *   T3 LEGENDARY  0.001 – 0.004   (roughly 3× rarer than Epic)
  *
  * Categories:
  *   TAG        — chat prefix tag
@@ -70,43 +73,43 @@ public enum CrateReward {
     TAG_KNIGHT    ("[Knight]",       Material.CHAINMAIL_HELMET,   0.05, 1, Type.TAG),
     TAG_BLACKSMITH("[Blacksmith]",   Material.ANVIL,              0.04, 1, Type.TAG),
 
-    // ── tier 2 (VERY RARE) ───────────────────────────────────────────
-    TAG_LEGEND     ("[Legend]",        Material.NETHER_STAR,        0.04, 2, Type.TAG),
-    TAG_CELESTIAL  ("[Celestial]",     Material.CRYING_OBSIDIAN,    0.03, 2, Type.TAG),
-    TAG_ANCIENT    ("[Ancient]",       Material.ANCIENT_DEBRIS,     0.03, 2, Type.TAG),
-    TAG_DIVINE     ("[Divine]",        Material.BEACON,             0.02, 2, Type.TAG),
-    TAG_PHANTOM    ("[Phantom]",       Material.PHANTOM_MEMBRANE,   0.02, 2, Type.TAG),
-    TAG_WARDEN     ("[Warden]",        Material.SCULK_SENSOR,       0.02, 2, Type.TAG),
-    TAG_DRAGON     ("\u2746 Dragon \u2746",     Material.DRAGON_EGG,         0.02, 2, Type.TAG),
-    TAG_SHADOW     ("\uD83C\uDF11 Shadow",      Material.COAL,               0.02, 2, Type.TAG),
-    TAG_INFERNO    ("\uD83D\uDD25 Inferno",     Material.BLAZE_ROD,          0.02, 2, Type.TAG),
-    TAG_SPECTER    ("\uD83D\uDC7B Specter",     Material.SOUL_LANTERN,       0.02, 2, Type.TAG),
-    TAG_ARCANE     ("\u2728 Arcane",       Material.AMETHYST_SHARD,     0.02, 2, Type.TAG),
-    TAG_TITAN      ("[\uD83D\uDDFF TITAN]",     Material.COBBLESTONE,        0.02, 2, Type.TAG),
-    TAG_REAPER     ("\u2620 Reaper",       Material.WITHER_SKELETON_SKULL, 0.015, 2, Type.TAG),
-    TAG_STORM      ("\u26A1 Storm",        Material.LIGHTNING_ROD,      0.015, 2, Type.TAG),
-    TAG_ENDER      ("[Ender]",         Material.ENDER_EYE,          0.015, 2, Type.TAG),
-    TAG_FROST      ("\u2744 Frost",        Material.PACKED_ICE,         0.025, 2, Type.TAG),
-    TAG_DEMON      ("\uD83D\uDC79 Demon",       Material.SOUL_SAND,          0.025, 2, Type.TAG),
-    TAG_PLAGUE     ("\u2623 Plague",       Material.POISONOUS_POTATO,   0.02,  2, Type.TAG),
-    TAG_TEMPLAR    ("[Templar]",       Material.GOLDEN_SWORD,       0.02,  2, Type.TAG),
-    TAG_BERSERKER  ("\uD83D\uDDE1 Berserker",   Material.NETHERITE_AXE,      0.02,  2, Type.TAG),
-    TAG_CURSED     ("\uD83D\uDC80 Cursed",      Material.WITHER_ROSE,        0.015, 2, Type.TAG),
-    TAG_ORACLE     ("\uD83D\uDD2E Oracle",       Material.AMETHYST_CLUSTER,   0.015, 2, Type.TAG),
-    TAG_UNDEAD     ("\uD83E\uDDDF Undead",      Material.ROTTEN_FLESH,       0.015, 2, Type.TAG),
+    // ── tier 2 (EPIC) ────────────────────────────────────────────────
+    TAG_LEGEND     ("[Legend]",        Material.NETHER_STAR,        0.012, 2, Type.TAG),
+    TAG_CELESTIAL  ("[Celestial]",     Material.CRYING_OBSIDIAN,    0.010, 2, Type.TAG),
+    TAG_ANCIENT    ("[Ancient]",       Material.ANCIENT_DEBRIS,     0.010, 2, Type.TAG),
+    TAG_DIVINE     ("[Divine]",        Material.BEACON,             0.008, 2, Type.TAG),
+    TAG_PHANTOM    ("[Phantom]",       Material.PHANTOM_MEMBRANE,   0.008, 2, Type.TAG),
+    TAG_WARDEN     ("[Warden]",        Material.SCULK_SENSOR,       0.008, 2, Type.TAG),
+    TAG_DRAGON     ("\u2746 Dragon \u2746",     Material.DRAGON_EGG,         0.008, 2, Type.TAG),
+    TAG_SHADOW     ("\uD83C\uDF11 Shadow",      Material.COAL,               0.007, 2, Type.TAG),
+    TAG_INFERNO    ("\uD83D\uDD25 Inferno",     Material.BLAZE_ROD,          0.007, 2, Type.TAG),
+    TAG_SPECTER    ("\uD83D\uDC7B Specter",     Material.SOUL_LANTERN,       0.007, 2, Type.TAG),
+    TAG_ARCANE     ("\u2728 Arcane",       Material.AMETHYST_SHARD,     0.007, 2, Type.TAG),
+    TAG_TITAN      ("[\uD83D\uDDFF TITAN]",     Material.COBBLESTONE,        0.006, 2, Type.TAG),
+    TAG_REAPER     ("\u2620 Reaper",       Material.WITHER_SKELETON_SKULL, 0.006, 2, Type.TAG),
+    TAG_STORM      ("\u26A1 Storm",        Material.LIGHTNING_ROD,      0.006, 2, Type.TAG),
+    TAG_ENDER      ("[Ender]",         Material.ENDER_EYE,          0.006, 2, Type.TAG),
+    TAG_FROST      ("\u2744 Frost",        Material.PACKED_ICE,         0.008, 2, Type.TAG),
+    TAG_DEMON      ("\uD83D\uDC79 Demon",       Material.SOUL_SAND,          0.008, 2, Type.TAG),
+    TAG_PLAGUE     ("\u2623 Plague",       Material.POISONOUS_POTATO,   0.007, 2, Type.TAG),
+    TAG_TEMPLAR    ("[Templar]",       Material.GOLDEN_SWORD,       0.007, 2, Type.TAG),
+    TAG_BERSERKER  ("\uD83D\uDDE1 Berserker",   Material.NETHERITE_AXE,      0.007, 2, Type.TAG),
+    TAG_CURSED     ("\uD83D\uDC80 Cursed",      Material.WITHER_ROSE,        0.006, 2, Type.TAG),
+    TAG_ORACLE     ("\uD83D\uDD2E Oracle",       Material.AMETHYST_CLUSTER,   0.006, 2, Type.TAG),
+    TAG_UNDEAD     ("\uD83E\uDDDF Undead",      Material.ROTTEN_FLESH,       0.006, 2, Type.TAG),
 
     // ── tier 3 (LEGENDARY) ───────────────────────────────────────────
-    TAG_GOD        ("\u26A1 GOD \u26A1",        Material.TOTEM_OF_UNDYING,   0.015, 3, Type.TAG),
-    TAG_ETERNAL    ("\u262F Eternal \u262F",    Material.END_CRYSTAL,        0.012, 3, Type.TAG),
-    TAG_OVERLORD   ("\uD83D\uDC51 Overlord \uD83D\uDC51",  Material.NETHERITE_INGOT,    0.010, 3, Type.TAG),
-    TAG_VOID       ("\u258C VOID\u2590",        Material.OBSIDIAN,           0.010, 3, Type.TAG),
-    TAG_COSMOS     ("\uD83C\uDF0C COSMOS \uD83C\uDF0C",  Material.SPORE_BLOSSOM,      0.010, 3, Type.TAG),
-    TAG_ABYSS_LORD ("\uD83D\uDD2E Abyss Lord",  Material.NETHERITE_BLOCK,    0.010, 3, Type.TAG),
-    TAG_NEXUS      ("\u2735 NEXUS \u2735",       Material.CONDUIT,            0.010, 3, Type.TAG),
-    TAG_PRIMORDIAL ("\uD83C\uDF0A Primordial",  Material.SPONGE,             0.010, 3, Type.TAG),
-    TAG_ASCENDED   ("\uD83D\uDD1F Ascended \uD83D\uDD1F", Material.NETHER_STAR,        0.010, 3, Type.TAG),
-    TAG_SOVEREIGN  ("\u2654 SOVEREIGN",    Material.GOLDEN_HELMET,      0.009, 3, Type.TAG),
-    TAG_DEVOURER   ("\uD83D\uDC32 Devourer",    Material.DRAGON_BREATH,      0.009, 3, Type.TAG),
+    TAG_GOD        ("\u26A1 GOD \u26A1",        Material.TOTEM_OF_UNDYING,   0.003, 3, Type.TAG),
+    TAG_ETERNAL    ("\u262F Eternal \u262F",    Material.END_CRYSTAL,        0.003, 3, Type.TAG),
+    TAG_OVERLORD   ("\uD83D\uDC51 Overlord \uD83D\uDC51",  Material.NETHERITE_INGOT,    0.002, 3, Type.TAG),
+    TAG_VOID       ("\u258C VOID\u2590",        Material.OBSIDIAN,           0.002, 3, Type.TAG),
+    TAG_COSMOS     ("\uD83C\uDF0C COSMOS \uD83C\uDF0C",  Material.SPORE_BLOSSOM,      0.002, 3, Type.TAG),
+    TAG_ABYSS_LORD ("\uD83D\uDD2E Abyss Lord",  Material.NETHERITE_BLOCK,    0.002, 3, Type.TAG),
+    TAG_NEXUS      ("\u2735 NEXUS \u2735",       Material.CONDUIT,            0.002, 3, Type.TAG),
+    TAG_PRIMORDIAL ("\uD83C\uDF0A Primordial",  Material.SPONGE,             0.002, 3, Type.TAG),
+    TAG_ASCENDED   ("\uD83D\uDD1F Ascended \uD83D\uDD1F", Material.NETHER_STAR,        0.002, 3, Type.TAG),
+    TAG_SOVEREIGN  ("\u2654 SOVEREIGN",    Material.GOLDEN_HELMET,      0.001, 3, Type.TAG),
+    TAG_DEVOURER   ("\uD83D\uDC32 Devourer",    Material.DRAGON_BREATH,      0.001, 3, Type.TAG),
 
     // ════════════════════════════════════════════════════════════════
     //  N A M E   C O L O R S
@@ -136,37 +139,37 @@ public enum CrateReward {
     COLOR_DARK_GREEN   ("Dark Green",    Material.GREEN_DYE,          0.06, 1, Type.NAME_COLOR),
     COLOR_DARK_PURPLE  ("Dark Purple",   Material.MAGENTA_DYE,        0.05, 1, Type.NAME_COLOR),
 
-    // ── tier 2 (VERY RARE) ───────────────────────────────────────────
-    COLOR_GRADIENT_FIRE    ("\uD83D\uDD25 Fire",      Material.BLAZE_POWDER,       0.04, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_OCEAN   ("\uD83C\uDF0A Ocean",     Material.PRISMARINE_SHARD,   0.04, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_NATURE  ("\uD83C\uDF3F Nature",    Material.OAK_LEAVES,         0.03, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_GALAXY  ("\uD83C\uDF0C Galaxy",    Material.AMETHYST_SHARD,     0.03, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_SUNSET  ("\uD83C\uDF05 Sunset",    Material.ORANGE_DYE,         0.03, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_ICE     ("\u2744 Ice",       Material.BLUE_ICE,           0.03, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_TOXIC   ("\u2623 Toxic",     Material.SLIME_BALL,         0.02, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_SHADOW  ("\uD83C\uDF11 Shadow",    Material.COAL,               0.02, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_ROSE    ("\uD83C\uDF39 Rose",      Material.PINK_TULIP,         0.02, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_BLOOD   ("\uD83E\uDE78 Blood",     Material.REDSTONE,           0.02, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_LAVA    ("\uD83C\uDF0B Lava",      Material.LAVA_BUCKET,        0.02, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_AURORA  ("\uD83C\uDF0C Aurora",    Material.SEA_LANTERN,        0.02, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_CANDY   ("\uD83C\uDF6C Candy",     Material.PINK_DYE,           0.03, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_THUNDER ("\u26A1 Thunder",   Material.LIGHTNING_ROD,      0.025, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_FOREST  ("\uD83C\uDF33 Forest",    Material.MOSS_BLOCK,         0.025, 2, Type.NAME_COLOR),
-    COLOR_GRADIENT_DEEP_SEA("\uD83D\uDC20 Deep Sea",  Material.HEART_OF_THE_SEA,   0.02,  2, Type.NAME_COLOR),
-    COLOR_GRADIENT_MAGMA   ("\uD83D\uDD25 Magma",     Material.MAGMA_BLOCK,        0.02,  2, Type.NAME_COLOR),
-    COLOR_GRADIENT_NEON    ("\uD83D\uDFE2 Neon",      Material.LIME_STAINED_GLASS, 0.02,  2, Type.NAME_COLOR),
-    COLOR_GRADIENT_SAKURA  ("\uD83C\uDF38 Sakura",    Material.CHERRY_LEAVES,      0.02,  2, Type.NAME_COLOR),
-    COLOR_GRADIENT_COPPER  ("\uD83E\uDD16 Copper",    Material.COPPER_INGOT,       0.02,  2, Type.NAME_COLOR),
+    // ── tier 2 (EPIC) ────────────────────────────────────────────────
+    COLOR_GRADIENT_FIRE    ("\uD83D\uDD25 Fire",      Material.BLAZE_POWDER,       0.012, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_OCEAN   ("\uD83C\uDF0A Ocean",     Material.PRISMARINE_SHARD,   0.012, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_NATURE  ("\uD83C\uDF3F Nature",    Material.OAK_LEAVES,         0.010, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_GALAXY  ("\uD83C\uDF0C Galaxy",    Material.AMETHYST_SHARD,     0.010, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_SUNSET  ("\uD83C\uDF05 Sunset",    Material.ORANGE_DYE,         0.010, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_ICE     ("\u2744 Ice",       Material.BLUE_ICE,           0.010, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_TOXIC   ("\u2623 Toxic",     Material.SLIME_BALL,         0.008, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_SHADOW  ("\uD83C\uDF11 Shadow",    Material.COAL,               0.008, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_ROSE    ("\uD83C\uDF39 Rose",      Material.PINK_TULIP,         0.008, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_BLOOD   ("\uD83E\uDE78 Blood",     Material.REDSTONE,           0.008, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_LAVA    ("\uD83C\uDF0B Lava",      Material.LAVA_BUCKET,        0.007, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_AURORA  ("\uD83C\uDF0C Aurora",    Material.SEA_LANTERN,        0.007, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_CANDY   ("\uD83C\uDF6C Candy",     Material.PINK_DYE,           0.010, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_THUNDER ("\u26A1 Thunder",   Material.LIGHTNING_ROD,      0.008, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_FOREST  ("\uD83C\uDF33 Forest",    Material.MOSS_BLOCK,         0.008, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_DEEP_SEA("\uD83D\uDC20 Deep Sea",  Material.HEART_OF_THE_SEA,   0.007, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_MAGMA   ("\uD83D\uDD25 Magma",     Material.MAGMA_BLOCK,        0.007, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_NEON    ("\uD83D\uDFE2 Neon",      Material.LIME_STAINED_GLASS, 0.007, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_SAKURA  ("\uD83C\uDF38 Sakura",    Material.CHERRY_LEAVES,      0.007, 2, Type.NAME_COLOR),
+    COLOR_GRADIENT_COPPER  ("\uD83E\uDD16 Copper",    Material.COPPER_INGOT,       0.006, 2, Type.NAME_COLOR),
 
     // ── tier 3 (LEGENDARY) ───────────────────────────────────────────
-    COLOR_GRADIENT_RAINBOW  ("\uD83C\uDF08 Rainbow",  Material.NETHER_STAR,        0.015, 3, Type.NAME_COLOR),
-    COLOR_GRADIENT_DIVINE   ("\u2728 Divine",   Material.END_CRYSTAL,        0.012, 3, Type.NAME_COLOR),
-    COLOR_GRADIENT_ABYSS    ("\u26AB Abyss",    Material.NETHERITE_SCRAP,    0.010, 3, Type.NAME_COLOR),
-    COLOR_GRADIENT_COSMOS   ("\uD83C\uDF0C Cosmos",   Material.SPORE_BLOSSOM,      0.010, 3, Type.NAME_COLOR),
-    COLOR_GRADIENT_VOID_FIRE("\uD83D\uDD25\u26AB Void Fire", Material.SOUL_TORCH,  0.010, 3, Type.NAME_COLOR),
-    COLOR_GRADIENT_SPECTRAL ("\uD83D\uDC7D Spectral",  Material.GHAST_TEAR,         0.010, 3, Type.NAME_COLOR),
-    COLOR_GRADIENT_SOLAR    ("\u2600 Solar",    Material.SHROOMLIGHT,        0.010, 3, Type.NAME_COLOR),
-    COLOR_GRADIENT_ABYSSAL  ("\uD83D\uDEF0 Abyssal",  Material.CONDUIT,            0.009, 3, Type.NAME_COLOR),
+    COLOR_GRADIENT_RAINBOW  ("\uD83C\uDF08 Rainbow",  Material.NETHER_STAR,        0.004, 3, Type.NAME_COLOR),
+    COLOR_GRADIENT_DIVINE   ("\u2728 Divine",   Material.END_CRYSTAL,        0.003, 3, Type.NAME_COLOR),
+    COLOR_GRADIENT_ABYSS    ("\u26AB Abyss",    Material.NETHERITE_SCRAP,    0.002, 3, Type.NAME_COLOR),
+    COLOR_GRADIENT_COSMOS   ("\uD83C\uDF0C Cosmos",   Material.SPORE_BLOSSOM,      0.002, 3, Type.NAME_COLOR),
+    COLOR_GRADIENT_VOID_FIRE("\uD83D\uDD25\u26AB Void Fire", Material.SOUL_TORCH,  0.002, 3, Type.NAME_COLOR),
+    COLOR_GRADIENT_SPECTRAL ("\uD83D\uDC7D Spectral",  Material.GHAST_TEAR,         0.002, 3, Type.NAME_COLOR),
+    COLOR_GRADIENT_SOLAR    ("\u2600 Solar",    Material.SHROOMLIGHT,        0.002, 3, Type.NAME_COLOR),
+    COLOR_GRADIENT_ABYSSAL  ("\uD83D\uDEF0 Abyssal",  Material.CONDUIT,            0.001, 3, Type.NAME_COLOR),
 
     // ════════════════════════════════════════════════════════════════
     //  C H A T   C O L O R S
@@ -194,34 +197,34 @@ public enum CrateReward {
     CHAT_DARK_PURPLE  ("Dark Purple Chat", Material.PURPLE_TERRACOTTA,0.05, 1, Type.CHAT_COLOR),
     CHAT_DARK_RED     ("Dark Red Chat",    Material.RED_TERRACOTTA,  0.05, 1, Type.CHAT_COLOR),
 
-    // ── tier 2 (VERY RARE) ───────────────────────────────────────────
-    CHAT_G_FIRE    ("\uD83D\uDD25 Fire Chat",      Material.BLAZE_ROD,          0.04, 2, Type.CHAT_COLOR),
-    CHAT_G_OCEAN   ("\uD83C\uDF0A Ocean Chat",     Material.HEART_OF_THE_SEA,   0.03, 2, Type.CHAT_COLOR),
-    CHAT_G_GALAXY  ("\uD83C\uDF0C Galaxy Chat",    Material.AMETHYST_CLUSTER,   0.03, 2, Type.CHAT_COLOR),
-    CHAT_G_NATURE  ("\uD83C\uDF3F Nature Chat",    Material.FERN,               0.03, 2, Type.CHAT_COLOR),
-    CHAT_G_ICE     ("\u2744 Ice Chat",       Material.PACKED_ICE,         0.02, 2, Type.CHAT_COLOR),
-    CHAT_G_SHADOW  ("\uD83C\uDF11 Shadow Chat",    Material.NETHERRACK,         0.02, 2, Type.CHAT_COLOR),
-    CHAT_G_ROSE    ("\uD83C\uDF39 Rose Chat",      Material.PINK_TULIP,         0.02, 2, Type.CHAT_COLOR),
-    CHAT_G_TOXIC   ("\u2623 Toxic Chat",     Material.SLIME_BALL,         0.02, 2, Type.CHAT_COLOR),
-    CHAT_G_LAVA    ("\uD83C\uDF0B Lava Chat",      Material.LAVA_BUCKET,        0.02, 2, Type.CHAT_COLOR),
-    CHAT_G_STORM   ("\u26A1 Storm Chat",    Material.LIGHTNING_ROD,      0.02, 2, Type.CHAT_COLOR),
-    CHAT_G_CANDY   ("\uD83C\uDF6C Candy Chat",     Material.PINK_DYE,           0.03, 2, Type.CHAT_COLOR),
-    CHAT_G_FOREST  ("\uD83C\uDF33 Forest Chat",    Material.MOSS_BLOCK,         0.025, 2, Type.CHAT_COLOR),
-    CHAT_G_NEON    ("\uD83D\uDFE2 Neon Chat",      Material.LIME_STAINED_GLASS, 0.025, 2, Type.CHAT_COLOR),
-    CHAT_G_SAKURA  ("\uD83C\uDF38 Sakura Chat",    Material.CHERRY_LEAVES,      0.02,  2, Type.CHAT_COLOR),
-    CHAT_G_THUNDER ("\u26A1 Thunder Chat",  Material.LIGHTNING_ROD,      0.02,  2, Type.CHAT_COLOR),
-    CHAT_G_DEEP_SEA("\uD83D\uDC20 Deep Sea Chat", Material.HEART_OF_THE_SEA,   0.02,  2, Type.CHAT_COLOR),
-    CHAT_G_MAGMA   ("\uD83D\uDD25 Magma Chat",     Material.MAGMA_BLOCK,        0.02,  2, Type.CHAT_COLOR),
-    CHAT_G_COPPER  ("\uD83E\uDD16 Copper Chat",    Material.COPPER_INGOT,       0.02,  2, Type.CHAT_COLOR),
+    // ── tier 2 (EPIC) ────────────────────────────────────────────────
+    CHAT_G_FIRE    ("\uD83D\uDD25 Fire Chat",      Material.BLAZE_ROD,          0.012, 2, Type.CHAT_COLOR),
+    CHAT_G_OCEAN   ("\uD83C\uDF0A Ocean Chat",     Material.HEART_OF_THE_SEA,   0.010, 2, Type.CHAT_COLOR),
+    CHAT_G_GALAXY  ("\uD83C\uDF0C Galaxy Chat",    Material.AMETHYST_CLUSTER,   0.010, 2, Type.CHAT_COLOR),
+    CHAT_G_NATURE  ("\uD83C\uDF3F Nature Chat",    Material.FERN,               0.010, 2, Type.CHAT_COLOR),
+    CHAT_G_ICE     ("\u2744 Ice Chat",       Material.PACKED_ICE,         0.008, 2, Type.CHAT_COLOR),
+    CHAT_G_SHADOW  ("\uD83C\uDF11 Shadow Chat",    Material.NETHERRACK,         0.008, 2, Type.CHAT_COLOR),
+    CHAT_G_ROSE    ("\uD83C\uDF39 Rose Chat",      Material.PINK_TULIP,         0.008, 2, Type.CHAT_COLOR),
+    CHAT_G_TOXIC   ("\u2623 Toxic Chat",     Material.SLIME_BALL,         0.008, 2, Type.CHAT_COLOR),
+    CHAT_G_LAVA    ("\uD83C\uDF0B Lava Chat",      Material.LAVA_BUCKET,        0.007, 2, Type.CHAT_COLOR),
+    CHAT_G_STORM   ("\u26A1 Storm Chat",    Material.LIGHTNING_ROD,      0.007, 2, Type.CHAT_COLOR),
+    CHAT_G_CANDY   ("\uD83C\uDF6C Candy Chat",     Material.PINK_DYE,           0.010, 2, Type.CHAT_COLOR),
+    CHAT_G_FOREST  ("\uD83C\uDF33 Forest Chat",    Material.MOSS_BLOCK,         0.008, 2, Type.CHAT_COLOR),
+    CHAT_G_NEON    ("\uD83D\uDFE2 Neon Chat",      Material.LIME_STAINED_GLASS, 0.008, 2, Type.CHAT_COLOR),
+    CHAT_G_SAKURA  ("\uD83C\uDF38 Sakura Chat",    Material.CHERRY_LEAVES,      0.007, 2, Type.CHAT_COLOR),
+    CHAT_G_THUNDER ("\u26A1 Thunder Chat",  Material.LIGHTNING_ROD,      0.007, 2, Type.CHAT_COLOR),
+    CHAT_G_DEEP_SEA("\uD83D\uDC20 Deep Sea Chat", Material.HEART_OF_THE_SEA,   0.007, 2, Type.CHAT_COLOR),
+    CHAT_G_MAGMA   ("\uD83D\uDD25 Magma Chat",     Material.MAGMA_BLOCK,        0.007, 2, Type.CHAT_COLOR),
+    CHAT_G_COPPER  ("\uD83E\uDD16 Copper Chat",    Material.COPPER_INGOT,       0.006, 2, Type.CHAT_COLOR),
 
     // ── tier 3 (LEGENDARY) ───────────────────────────────────────────
-    CHAT_G_RAINBOW ("\uD83C\uDF08 Rainbow Chat",  Material.NETHER_STAR,        0.012, 3, Type.CHAT_COLOR),
-    CHAT_G_DIVINE  ("\u2728 Divine Chat",   Material.TOTEM_OF_UNDYING,   0.010, 3, Type.CHAT_COLOR),
-    CHAT_G_VOID    ("\u26AB Void Chat",     Material.OBSIDIAN,           0.010, 3, Type.CHAT_COLOR),
-    CHAT_G_COSMOS  ("\uD83C\uDF0C Cosmos Chat",   Material.SPORE_BLOSSOM,      0.010, 3, Type.CHAT_COLOR),
-    CHAT_G_ABYSSAL ("\uD83D\uDEF0 Abyssal Chat",  Material.CONDUIT,            0.010, 3, Type.CHAT_COLOR),
-    CHAT_G_SOLAR   ("\u2600 Solar Chat",    Material.SHROOMLIGHT,        0.010, 3, Type.CHAT_COLOR),
-    CHAT_G_SPECTRAL("\uD83D\uDC7D Spectral Chat", Material.GHAST_TEAR,         0.009, 3, Type.CHAT_COLOR),
+    CHAT_G_RAINBOW ("\uD83C\uDF08 Rainbow Chat",  Material.NETHER_STAR,        0.004, 3, Type.CHAT_COLOR),
+    CHAT_G_DIVINE  ("\u2728 Divine Chat",   Material.TOTEM_OF_UNDYING,   0.003, 3, Type.CHAT_COLOR),
+    CHAT_G_VOID    ("\u26AB Void Chat",     Material.OBSIDIAN,           0.002, 3, Type.CHAT_COLOR),
+    CHAT_G_COSMOS  ("\uD83C\uDF0C Cosmos Chat",   Material.SPORE_BLOSSOM,      0.002, 3, Type.CHAT_COLOR),
+    CHAT_G_ABYSSAL ("\uD83D\uDEF0 Abyssal Chat",  Material.CONDUIT,            0.002, 3, Type.CHAT_COLOR),
+    CHAT_G_SOLAR   ("\u2600 Solar Chat",    Material.SHROOMLIGHT,        0.002, 3, Type.CHAT_COLOR),
+    CHAT_G_SPECTRAL("\uD83D\uDC7D Spectral Chat", Material.GHAST_TEAR,         0.001, 3, Type.CHAT_COLOR),
 
     // ════════════════════════════════════════════════════════════════
     //  G L O W
@@ -248,26 +251,26 @@ public enum CrateReward {
     GLOW_DARK_GRAY ("Dark Gray Glow",   Material.GRAY_CONCRETE,         0.04, 1, Type.GLOW),
     GLOW_CYAN      ("Cyan Glow",        Material.CYAN_CONCRETE,         0.04, 1, Type.GLOW),
 
-    // ── tier 2 (VERY RARE) ───────────────────────────────────────────
-    GLOW_DARK_RED  ("Dark Red Glow",    Material.CRIMSON_STEM,          0.03, 2, Type.GLOW),
-    GLOW_DARK_BLUE ("Dark Blue Glow",   Material.BLUE_TERRACOTTA,       0.03, 2, Type.GLOW),
-    GLOW_BLACK     ("Black Glow",       Material.BLACK_STAINED_GLASS,   0.02, 2, Type.GLOW),
-    GLOW_GOLD      ("\uD83D\uDC51 Gold Glow",    Material.GOLD_BLOCK,            0.02, 2, Type.GLOW),
-    GLOW_CRIMSON   ("\u2665 Crimson Glow",  Material.CRIMSON_NYLIUM,     0.025, 2, Type.GLOW),
-    GLOW_NEON_GREEN("\uD83D\uDFE2 Neon Glow",   Material.SLIME_BLOCK,           0.02, 2, Type.GLOW),
-    GLOW_SOUL      ("\uD83D\uDC9C Soul Glow",     Material.SOUL_LANTERN,          0.02, 2, Type.GLOW),
+    // ── tier 2 (EPIC) ────────────────────────────────────────────────
+    GLOW_DARK_RED  ("Dark Red Glow",    Material.CRIMSON_STEM,          0.010, 2, Type.GLOW),
+    GLOW_DARK_BLUE ("Dark Blue Glow",   Material.BLUE_TERRACOTTA,       0.010, 2, Type.GLOW),
+    GLOW_BLACK     ("Black Glow",       Material.BLACK_STAINED_GLASS,   0.008, 2, Type.GLOW),
+    GLOW_GOLD      ("\uD83D\uDC51 Gold Glow",    Material.GOLD_BLOCK,            0.008, 2, Type.GLOW),
+    GLOW_CRIMSON   ("\u2665 Crimson Glow",  Material.CRIMSON_NYLIUM,     0.008, 2, Type.GLOW),
+    GLOW_NEON_GREEN("\uD83D\uDFE2 Neon Glow",   Material.SLIME_BLOCK,           0.007, 2, Type.GLOW),
+    GLOW_SOUL      ("\uD83D\uDC9C Soul Glow",     Material.SOUL_LANTERN,          0.007, 2, Type.GLOW),
 
     // ── tier 3 (LEGENDARY) ───────────────────────────────────────────
-    GLOW_PRISMATIC ("\uD83C\uDF08 Prismatic Glow", Material.NETHER_STAR,          0.012, 3, Type.GLOW),
-    GLOW_INFERNO   ("\uD83D\uDD25 Inferno Glow",    Material.BLAZE_POWDER,         0.010, 3, Type.GLOW),
-    GLOW_VOID_DARK ("\u26AB Void Glow",             Material.OBSIDIAN,             0.010, 3, Type.GLOW),
-    GLOW_AURORA    ("\uD83C\uDF0C Aurora Glow",     Material.SEA_LANTERN,          0.010, 3, Type.GLOW),
-    GLOW_DIVINE    ("\u2728 Divine Glow",           Material.END_CRYSTAL,          0.009, 3, Type.GLOW);
+    GLOW_PRISMATIC ("\uD83C\uDF08 Prismatic Glow", Material.NETHER_STAR,          0.004, 3, Type.GLOW),
+    GLOW_INFERNO   ("\uD83D\uDD25 Inferno Glow",    Material.BLAZE_POWDER,         0.003, 3, Type.GLOW),
+    GLOW_VOID_DARK ("\u26AB Void Glow",             Material.OBSIDIAN,             0.002, 3, Type.GLOW),
+    GLOW_AURORA    ("\uD83C\uDF0C Aurora Glow",     Material.SEA_LANTERN,          0.002, 3, Type.GLOW),
+    GLOW_DIVINE    ("\u2728 Divine Glow",           Material.END_CRYSTAL,          0.001, 3, Type.GLOW);
 
     // ── tier / type constants ─────────────────────────────────────────
     public static final int TIER_COMMON    = 0;
     public static final int TIER_RARE      = 1;
-    public static final int TIER_VERY_RARE = 2;
+    public static final int TIER_EPIC      = 2;
     public static final int TIER_LEGENDARY = 3;
 
     public enum Type { POUCH, TAG, NAME_COLOR, CHAT_COLOR, GLOW }
@@ -303,7 +306,7 @@ public enum CrateReward {
     public String tierLabel() {
         return switch (tier) {
             case 1  -> "<gradient:#7afcff:#00c2ff>Rare</gradient>";
-            case 2  -> "<gradient:#c471f5:#fa71cd>Very Rare</gradient>";
+            case 2  -> "<gradient:#c471f5:#fa71cd>Epic</gradient>";
             case 3  -> "<gradient:#f6d365:#fda085><bold>\u2746 LEGENDARY \u2746</bold></gradient>";
             default -> "<gray>Common</gray>";
         };
@@ -486,7 +489,6 @@ public enum CrateReward {
             case CHAT_G_SPECTRAL -> "<gradient:#f5f7fa:#c3cfe2><bold>{msg}</bold></gradient>";
 
             // ─────────── GLOW ─────────────────────────────────────────
-            // Returns the ChatColor name / cycling-key for GlowManager
             case GLOW_WHITE      -> "WHITE";
             case GLOW_YELLOW     -> "YELLOW";
             case GLOW_GREEN      -> "GREEN";
