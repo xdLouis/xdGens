@@ -2,7 +2,6 @@ package de.louis.xdGens.manager;
 
 import de.louis.xdGens.main.Main;
 import de.louis.xdGens.skill.PandaRollerSkill;
-import de.louis.xdGens.skill.ShadowCloneSkill;
 import de.louis.xdGens.skill.SkillRegistry;
 import de.louis.xdGens.skill.TntBomberSkill;
 import de.louis.xdGens.util.HoeUtil;
@@ -28,12 +27,14 @@ public class HoeUpgradeManager {
     public static final int MAX_PANDA_LEVEL         = 1000;
     public static final int MAX_TNT_LEVEL           = 1000;
     public static final int MAX_SHADOW_CLONE_LEVEL  = 1000;
-    public static final int PANDA_REQUIRED_PRESTIGE = 3;
-    public static final int TNT_REQUIRED_PRESTIGE   = 3;
+    public static final int PANDA_REQUIRED_PRESTIGE       = 3;
+    public static final int TNT_REQUIRED_PRESTIGE         = 3;
     public static final int SHADOW_CLONE_REQUIRED_PRESTIGE = 5;
 
     /**
      * Maximum cost per level — acts as a safety net only.
+     * With EXP_SCALE = 1.007 the natural Lv-1000 cost is ~96M–350M,
+     * so this 200B cap should never be reached in normal gameplay.
      */
     public static final long MAX_LEVEL_COST = 200_000_000_000L; // 200B
 
@@ -41,6 +42,7 @@ public class HoeUpgradeManager {
             500, 1200, 2500, 4500, 7500, 12000, 18500, 27000, 38000, 55000
     };
 
+    // ── Upgrade cost constants ──────────────────────────────────────────────
     private static final double XP_BASE_COST      = 750.0;
     private static final double XP_LINEAR_SCALE   = 0.18;
     private static final double XP_EXP_SCALE      = 1.007;
@@ -51,11 +53,11 @@ public class HoeUpgradeManager {
     private static final double TOKEN_EXP_SCALE      = 1.007;
     private static final double TOKEN_GAIN_PER_LEVEL = 0.08;
 
-    private static final double KEY_FINDER_BASE_COST    = 1500.0;
-    private static final double KEY_FINDER_LINEAR_SCALE = 0.22;
-    private static final double KEY_FINDER_EXP_SCALE    = 1.007;
-    private static final double KEY_FINDER_BASE_CHANCE  = 0.00015;
-    private static final double KEY_FINDER_MAX_CHANCE   = 0.0125;
+    private static final double KEY_FINDER_BASE_COST      = 1500.0;
+    private static final double KEY_FINDER_LINEAR_SCALE   = 0.22;
+    private static final double KEY_FINDER_EXP_SCALE      = 1.007;
+    private static final double KEY_FINDER_BASE_CHANCE    = 0.00015;
+    private static final double KEY_FINDER_MAX_CHANCE     = 0.0125;
 
     private static final double HOE_XP_GAIN_PER_LEVEL = 0.04;
     private static final float  BASE_WALK_SPEED       = 0.20f;
@@ -78,7 +80,7 @@ public class HoeUpgradeManager {
     private static final double TNT_LINEAR_SCALE = 0.20;
     private static final double TNT_EXP_SCALE    = 1.007;
 
-    private static final double SHADOW_BASE_COST    = 400.0;
+    private static final double SHADOW_BASE_COST    = 500.0;
     private static final double SHADOW_LINEAR_SCALE = 0.20;
     private static final double SHADOW_EXP_SCALE    = 1.007;
 
@@ -118,14 +120,14 @@ public class HoeUpgradeManager {
         for (String key : config.getConfigurationSection("players").getKeys(false)) {
             try {
                 UUID uuid = UUID.fromString(key);
-                cropLevels.put(uuid,        clamp(config.getInt("players." + key + ".crop_harvest", 0), MAX_CROP_LEVEL));
-                xpLevels.put(uuid,          clamp(config.getInt("players." + key + ".xp_boost",     0), MAX_XP_LEVEL));
-                tokenLevels.put(uuid,       clamp(config.getInt("players." + key + ".token_boost",   0), MAX_TOKEN_LEVEL));
-                keyFinderLevels.put(uuid,   clamp(config.getInt("players." + key + ".key_finder",    0), MAX_KEY_FINDER_LEVEL));
-                hoeLevels.put(uuid,         clampHoe(config.getInt("players." + key + ".hoe_material", 1)));
-                pandaLevels.put(uuid,       clamp(config.getInt("players." + key + ".panda_roller",  0), MAX_PANDA_LEVEL));
-                tntLevels.put(uuid,         clamp(config.getInt("players." + key + ".tnt_bomber",    0), MAX_TNT_LEVEL));
-                shadowCloneLevels.put(uuid, clamp(config.getInt("players." + key + ".shadow_clone",  0), MAX_SHADOW_CLONE_LEVEL));
+                cropLevels.put(uuid,         clamp(config.getInt("players." + key + ".crop_harvest",  0), MAX_CROP_LEVEL));
+                xpLevels.put(uuid,           clamp(config.getInt("players." + key + ".xp_boost",      0), MAX_XP_LEVEL));
+                tokenLevels.put(uuid,        clamp(config.getInt("players." + key + ".token_boost",    0), MAX_TOKEN_LEVEL));
+                keyFinderLevels.put(uuid,    clamp(config.getInt("players." + key + ".key_finder",     0), MAX_KEY_FINDER_LEVEL));
+                hoeLevels.put(uuid,          clampHoe(config.getInt("players." + key + ".hoe_material", 1)));
+                pandaLevels.put(uuid,        clamp(config.getInt("players." + key + ".panda_roller",   0), MAX_PANDA_LEVEL));
+                tntLevels.put(uuid,          clamp(config.getInt("players." + key + ".tnt_bomber",     0), MAX_TNT_LEVEL));
+                shadowCloneLevels.put(uuid,  clamp(config.getInt("players." + key + ".shadow_clone",   0), MAX_SHADOW_CLONE_LEVEL));
             } catch (IllegalArgumentException ignored) {
                 plugin.getLogger().warning("Invalid UUID in upgrades.yml: " + key);
             }
@@ -136,8 +138,8 @@ public class HoeUpgradeManager {
     public void saveAll() {
         for (UUID uuid : getAllKnownPlayers()) {
             String path = "players." + uuid;
-            config.set(path + ".crop_harvest",  getCropLevel(uuid));
-            config.set(path + ".xp_boost",      getXpLevel(uuid));
+            config.set(path + ".crop_harvest", getCropLevel(uuid));
+            config.set(path + ".xp_boost",     getXpLevel(uuid));
             config.set(path + ".token_boost",   getTokenLevel(uuid));
             config.set(path + ".key_finder",    getKeyFinderLevel(uuid));
             config.set(path + ".hoe_material",  getHoeLevel(uuid));
@@ -149,17 +151,17 @@ public class HoeUpgradeManager {
         catch (IOException e) { plugin.getLogger().severe("Could not save upgrades.yml: " + e.getMessage()); }
     }
 
-    // ── Getters ───────────────────────────────────────────────────────────────────
+    // ── Getters ──────────────────────────────────────────────────────────────────────
 
-    public int getCropLevel(Player p)            { return getCropLevel(p.getUniqueId()); }
-    public int getCropBonus(Player p)            { return getCropLevel(p); }
-    public int getXpLevel(Player p)              { return getXpLevel(p.getUniqueId()); }
-    public int getTokenLevel(Player p)           { return getTokenLevel(p.getUniqueId()); }
-    public int getKeyFinderLevel(Player p)       { return getKeyFinderLevel(p.getUniqueId()); }
-    public int getHoeLevel(Player p)             { return getHoeLevel(p.getUniqueId()); }
-    public int getPandaLevel(Player p)           { return getPandaLevel(p.getUniqueId()); }
-    public int getTntLevel(Player p)             { return getTntLevel(p.getUniqueId()); }
-    public int getShadowCloneLevel(Player p)     { return getShadowCloneLevel(p.getUniqueId()); }
+    public int getCropLevel(Player p)           { return getCropLevel(p.getUniqueId()); }
+    public int getCropBonus(Player p)           { return getCropLevel(p); }
+    public int getXpLevel(Player p)             { return getXpLevel(p.getUniqueId()); }
+    public int getTokenLevel(Player p)          { return getTokenLevel(p.getUniqueId()); }
+    public int getKeyFinderLevel(Player p)      { return getKeyFinderLevel(p.getUniqueId()); }
+    public int getHoeLevel(Player p)            { return getHoeLevel(p.getUniqueId()); }
+    public int getPandaLevel(Player p)          { return getPandaLevel(p.getUniqueId()); }
+    public int getTntLevel(Player p)            { return getTntLevel(p.getUniqueId()); }
+    public int getShadowCloneLevel(Player p)    { return getShadowCloneLevel(p.getUniqueId()); }
 
     public double getXpMultiplier(Player p)      { return 1.0 + (getXpLevel(p) * XP_GAIN_PER_LEVEL) + getHoeXpBonus(p); }
     public double getXpPercentBonus(Player p)    { return (getXpMultiplier(p) - 1.0) * 100.0; }
@@ -181,6 +183,7 @@ public class HoeUpgradeManager {
     private PandaRollerSkill pandaSkill() {
         return (PandaRollerSkill) SkillRegistry.get("panda_roller");
     }
+
     private TntBomberSkill tntSkill() {
         return (TntBomberSkill) SkillRegistry.get("tnt_bomber");
     }
@@ -192,9 +195,17 @@ public class HoeUpgradeManager {
     @Deprecated
     public double getPandaRewardBonus(Player p) { return pandaSkill().rewardBonus(getPandaLevel(p)); }
 
-    public boolean canUnlockPanda(Player p)       { return plugin.getProgressionManager().getPrestige(p) >= PANDA_REQUIRED_PRESTIGE; }
-    public boolean canUnlockTnt(Player p)         { return plugin.getProgressionManager().getPrestige(p) >= TNT_REQUIRED_PRESTIGE; }
-    public boolean canUnlockShadowClone(Player p) { return plugin.getProgressionManager().getPrestige(p) >= SHADOW_CLONE_REQUIRED_PRESTIGE; }
+    public boolean canUnlockPanda(Player p) {
+        return plugin.getProgressionManager().getPrestige(p) >= PANDA_REQUIRED_PRESTIGE;
+    }
+
+    public boolean canUnlockTnt(Player p) {
+        return plugin.getProgressionManager().getPrestige(p) >= TNT_REQUIRED_PRESTIGE;
+    }
+
+    public boolean canUnlockShadowClone(Player p) {
+        return plugin.getProgressionManager().getPrestige(p) >= SHADOW_CLONE_REQUIRED_PRESTIGE;
+    }
 
     public float getWalkSpeed(Player p) {
         int   level    = getHoeLevel(p);
@@ -203,7 +214,7 @@ public class HoeUpgradeManager {
         return BASE_WALK_SPEED + ((MAX_WALK_SPEED - BASE_WALK_SPEED) * progress);
     }
 
-    // ── Cost calculators ─────────────────────────────────────────────────────────────
+    // ── Cost calculators ──────────────────────────────────────────────────────────────────
 
     private static long safeCost(double raw) {
         if (Double.isNaN(raw) || Double.isInfinite(raw) || raw < 0) return MAX_LEVEL_COST;
@@ -251,7 +262,7 @@ public class HoeUpgradeManager {
         return safeCost(SHADOW_BASE_COST * (1.0 + SHADOW_LINEAR_SCALE * targetLevel) * Math.pow(SHADOW_EXP_SCALE, targetLevel - 1));
     }
 
-    // ── Upgrade methods ──────────────────────────────────────────────────────────────────
+    // ── Upgrade methods ─────────────────────────────────────────────────────────────────────
 
     public boolean upgradeCrop(Player p)      { return upgradeCropBulk(p, 1) == 1; }
     public boolean upgradeXp(Player p)        { return upgradeXpBulk(p, 1) == 1; }
@@ -283,6 +294,7 @@ public class HoeUpgradeManager {
         if (bought > 0) saveAll();
         return bought;
     }
+
     public boolean upgradePanda(Player p) { return upgradePandaBulk(p, 1) == 1; }
 
     public int upgradeTntBulk(Player p, int amount) {
@@ -299,6 +311,7 @@ public class HoeUpgradeManager {
         if (bought > 0) saveAll();
         return bought;
     }
+
     public boolean upgradeTnt(Player p) { return upgradeTntBulk(p, 1) == 1; }
 
     public int upgradeShadowCloneBulk(Player p, int amount) {
@@ -315,6 +328,7 @@ public class HoeUpgradeManager {
         if (bought > 0) saveAll();
         return bought;
     }
+
     public boolean upgradeShadowClone(Player p) { return upgradeShadowCloneBulk(p, 1) == 1; }
 
     public int upgradeCropBulk(Player p, int amount) {
@@ -384,7 +398,7 @@ public class HoeUpgradeManager {
         p.getInventory().setItemInMainHand(HoeUtil.updateHoeItem(plugin, mainHand, getHoeLevel(p)));
     }
 
-    // ── Internal helpers ─────────────────────────────────────────────────────────────────
+    // ── Internal helpers ────────────────────────────────────────────────────────────────────
 
     private Material getHoeMaterial(int level) {
         int group = (level - 1) / 3;

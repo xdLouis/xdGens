@@ -70,13 +70,13 @@ public class FieldListener implements Listener {
         double hoeMultiplier      = plugin.getHoeUpgradeManager().getTokenMultiplier(player);
         double prestigeMultiplier = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
 
-        // ── Shadow Clone ×4 multiplier ─────────────────────────────────────────
+        // Shadow Clone: ×4 multiplier on tokens AND xp while active
         double shadowMult = ShadowCloneSession.isActive(player.getUniqueId()) ? 4.0 : 1.0;
 
         long   finalTokens = Math.round(baseTokens * hoeMultiplier * prestigeMultiplier * shadowMult);
         double finalXp     = Rng.between(xpMin, xpMax)
-                           * plugin.getHoeUpgradeManager().getXpMultiplier(player)
-                           * shadowMult;
+                * plugin.getHoeUpgradeManager().getXpMultiplier(player)
+                * shadowMult;
 
         int totalCrops = 1 + plugin.getHoeUpgradeManager().getCropBonus(player);
         int stored     = plugin.getBackpackManager().addWheat(player, totalCrops);
@@ -92,7 +92,7 @@ public class FieldListener implements Listener {
         plugin.getProgressionManager().addXp(player, finalXp);
         plugin.getActionBarManager().addHarvest(player, Math.toIntExact(finalTokens), finalXp);
 
-        // ── Panda Roller ────────────────────────────────────────────────────────
+        // ── Panda Roller ────────────────────────────────────────────────────
         HoeUpgradeManager hoe = plugin.getHoeUpgradeManager();
         if (!PandaRollSession.isActive(player.getUniqueId()) && hoe.getPandaLevel(player) >= 1) {
             if (Math.random() < hoe.getPandaSpawnChance(player)) {
@@ -103,8 +103,9 @@ public class FieldListener implements Listener {
                 ).start();
             }
         }
+        // ──────────────────────────────────────────────────────────────────
 
-        // ── TNT Bomber ─────────────────────────────────────────────────────────
+        // ── TNT Bomber ────────────────────────────────────────────────────
         int tntLvl = hoe.getTntLevel(player);
         plugin.getLogger().info("[TNT-DEBUG] " + player.getName()
                 + " tntLevel=" + tntLvl
@@ -120,8 +121,9 @@ public class FieldListener implements Listener {
                 TntBombSession.trigger(plugin, player, tntLvl);
             }
         }
+        // ──────────────────────────────────────────────────────────────────
 
-        // ── Key Finder ─────────────────────────────────────────────────────────
+        // ── Key Finder ────────────────────────────────────────────────────
         if (plugin.getHoeUpgradeManager().getKeyFinderLevel(player) > 0) {
             boolean found = plugin.getCrateManager().tryGiveRandomKey(player);
             if (found) {
