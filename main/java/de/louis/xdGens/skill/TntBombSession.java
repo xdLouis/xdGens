@@ -2,6 +2,7 @@ package de.louis.xdGens.skill;
 
 import de.louis.xdGens.main.Main;
 import de.louis.xdGens.util.MessageUtil;
+import de.louis.xdGens.util.NumberUtil;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
@@ -24,12 +25,10 @@ public class TntBombSession {
         MessageUtil.sendRaw(player, MessageUtil.PREFIX
                 + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 TNT Bomber activated!</gradient>");
 
-        // Shared counters across all bombs
         AtomicInteger totalCrops  = new AtomicInteger(0);
         AtomicLong    totalTokens = new AtomicLong(0L);
         AtomicInteger bombsDone   = new AtomicInteger(0);
 
-        // Total ticks until last bomb could possibly land
         long lastBombLandTick = (long)(BOMB_COUNT - 1) * BOMB_DELAY_TICKS + DROP_HEIGHT * 2 + 5;
 
         for (int i = 0; i < BOMB_COUNT; i++) {
@@ -39,7 +38,6 @@ public class TntBombSession {
                     (long) bombIndex * BOMB_DELAY_TICKS);
         }
 
-        // Send summary after all bombs have landed
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             long   tokens       = totalTokens.get();
             int    crops        = totalCrops.get();
@@ -52,7 +50,7 @@ public class TntBombSession {
             } else {
                 MessageUtil.sendRaw(player, MessageUtil.PREFIX
                         + " <gradient:#ff6b6b:#ffd93d>\uD83D\uDCA3 TNT Bomber finished!</gradient>"
-                        + " <yellow>+" + tokens + " Tokens</yellow>"
+                        + " <yellow>+" + NumberUtil.format(tokens) + " Tokens</yellow>"
                         + " <gray>\u00b7</gray> <dark_gray>(" + crops + " crops \u00b7 Lv " + tntLevel
                         + " \u00b7 Prestige \u00d7" + String.format("%.1f", prestigeMult) + ")</dark_gray>");
             }

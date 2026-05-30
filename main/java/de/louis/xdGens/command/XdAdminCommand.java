@@ -22,18 +22,26 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
 
     private final Main plugin;
 
-    // ── cached reward lists ───────────────────────────────────────────────
-    private static final List<String> TAGS = rewardNames(CrateReward::isTag);
-    private static final List<String> COLORS = rewardNames(CrateReward::isColor);
+    private static final List<String> TAGS        = rewardNames(CrateReward::isTag);
+    private static final List<String> COLORS      = rewardNames(CrateReward::isColor);
     private static final List<String> CHAT_COLORS = rewardNames(CrateReward::isChatColor);
-    private static final List<String> GLOWS = rewardNames(r -> r.getType() == CrateReward.Type.GLOW);
+    private static final List<String> GLOWS       = rewardNames(r -> r.getType() == CrateReward.Type.GLOW);
     private static final List<String> CRATE_TYPES = Arrays.stream(CrateType.values()).map(Enum::name).toList();
     private static final List<String> MODIFY_ACTIONS = List.of("set", "add", "remove");
-    private static final List<String> MODIFY_SUBS = List.of("money", "tokens", "xp", "level", "prestige");
+    private static final List<String> MODIFY_SUBS    = List.of("money", "tokens", "xp", "level", "prestige");
 
-    public XdAdminCommand(Main plugin) {
-        this.plugin = plugin;
-    }
+    /** Tab-complete suggestions for amount arguments — mirrors NumberUtil suffixes */
+    private static final List<String> AMOUNT_SUGGESTIONS = List.of(
+            "1k", "10k", "100k",
+            "1M", "10M", "100M",
+            "1B", "10B", "100B",
+            "1T", "10T", "100T",
+            "1Q", "10Q", "100Q",
+            "1Qi", "10Qi",
+            "1Sx", "1Sp", "1Oc", "1No", "1Dc"
+    );
+
+    public XdAdminCommand(Main plugin) { this.plugin = plugin; }
 
     // ── command dispatch ──────────────────────────────────────────────────
 
@@ -61,7 +69,7 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    // ── /xdadmin givekey <player> <crate> [amount] ───────────────────────
+    // ── /xdadmin givekey <player> <crate> [amount] ─────────────────────────────
 
     private void handleGiveKey(CommandSender sender, String[] args) {
         if (args.length < 3) { syntax(sender, "givekey <player> <crate> [amount]"); return; }
@@ -84,13 +92,13 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         for (int i = 0; i < amount; i++) plugin.getVirtualKeyManager().addKey(target, crate);
         int total = plugin.getVirtualKeyManager().getKeys(target, crate);
 
-        ok(sender, "Gave <white>" + amount + "x " + crate.getDisplayName() + " Key</white> to <yellow>" + target.getName() + "</yellow>. Total: " + total);
+        ok(sender, "Gave <white>" + amount + "x " + crate.getDisplayName() + " Key</white> to <yellow>"
+                + target.getName() + "</yellow>. Total: " + total);
         MessageUtil.sendRaw(target, MessageUtil.PREFIX + " <green>You received <white>" + amount + "x "
                 + crate.getGradient() + crate.getDisplayName() + " Key</gradient></white>!");
     }
 
-    // ── /xdadmin give<tag|color|chatcolor|glow> <player> <reward|*> ───────
-    // Pass "*" as reward to unlock ALL rewards of that type at once.
+    // ── /xdadmin give<tag|color|chatcolor|glow> <player> <reward|*> ────────────
 
     private void handleGiveCosmetic(CommandSender sender, String[] args,
                                      CrateReward.Type type, List<String> validNames, String label) {
@@ -102,18 +110,15 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         Player target = resolvePlayer(sender, args[1]);
         if (target == null) return;
 
-        // ── wildcard: unlock every reward of this type ──
         if (args[2].equals("*")) {
             int count = 0;
-            for (CrateReward r : CrateReward.values()) {
+            for (CrateReward r : CrateReward.values())
                 if (r.getType() == type && plugin.getPlayerCosmeticManager().unlock(target, r)) count++;
-            }
             ok(sender, "Unlocked <white>" + count + " new " + label + "(s)</white> for <yellow>" + target.getName() + "</yellow>.");
             MessageUtil.sendRaw(target, MessageUtil.PREFIX + " <green>\u2728 Admin unlocked ALL " + label + "s! Use <white>/cosmetics</white>.");
             return;
         }
 
-        // ── single reward ──
         CrateReward reward;
         try {
             reward = CrateReward.valueOf(args[2].toUpperCase());
@@ -137,7 +142,7 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    // ── /xdadmin info <player> ────────────────────────────────────────────
+    // ── /xdadmin info <player> ───────────────────────────────────────────────
 
     private void handleInfo(CommandSender sender, String[] args) {
         if (args.length < 2) { syntax(sender, "info <player>"); return; }
@@ -153,13 +158,14 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         MessageUtil.sendRaw(sender, "<gray>Money:     </gray><green>$" + NumberUtil.format(plugin.getCurrencyManager().getMoney(t)) + "</green>");
         MessageUtil.sendRaw(sender, "<gray>Tokens:    </gray><gold>" + NumberUtil.format(plugin.getCurrencyManager().getTokens(t)) + "</gold>");
         MessageUtil.sendRaw(sender, "<gray>Level:     </gray><aqua>" + plugin.getProgressionManager().getLevel(t) + "</aqua>");
-        MessageUtil.sendRaw(sender, "<gray>XP:        </gray><aqua>" + NumberUtil.format(plugin.getProgressionManager().getXp(t))
+        MessageUtil.sendRaw(sender, "<gray>XP:        </gray><aqua>"
+                + NumberUtil.format(plugin.getProgressionManager().getXp(t))
                 + " / " + NumberUtil.format(plugin.getProgressionManager().getRequiredXp(t)) + "</aqua>");
         MessageUtil.sendRaw(sender, "<gray>Prestige:  </gray><gradient:#f6d365:#fda085>" + plugin.getProgressionManager().getPrestige(t) + "</gradient>");
         MessageUtil.sendRaw(sender, "<gray>Keys:      </gray><white>" + keys.toString().trim() + "</white>");
         MessageUtil.sendRaw(sender, "<gray>Tags:      </gray><white>" + cosm.getUnlockedTags(t).size() + " unlocked</white>");
-        MessageUtil.sendRaw(sender, "<gray>Colors:    </gray><white>" + cosm.getUnlockedColors(t).size() + " / "
-                + cosm.getUnlockedChatColors(t).size() + " chat</white>");
+        MessageUtil.sendRaw(sender, "<gray>Colors:    </gray><white>" + cosm.getUnlockedColors(t).size()
+                + " / " + cosm.getUnlockedChatColors(t).size() + " chat</white>");
         MessageUtil.sendRaw(sender, "<gray>Glows:     </gray><white>" + cosm.getUnlockedGlows(t).size() + " unlocked</white>");
     }
 
@@ -183,7 +189,7 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         MessageUtil.sendRaw(t, MessageUtil.PREFIX + " <red>Your data was reset by an admin.</red>");
     }
 
-    // ── /xdadmin <money|tokens|xp|level|prestige> <set|add|remove> <player> <amount> ─
+    // ── /xdadmin <money|tokens|xp|level|prestige> <set|add|remove> <player> <amount> ──
 
     private void handleModify(CommandSender sender, String type, String[] args) {
         if (args.length < 4) { syntax(sender, type + " <set|add|remove> <player> <amount>"); return; }
@@ -193,7 +199,11 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
 
         double amount;
         try { amount = parseAmount(args[3]); }
-        catch (NumberFormatException e) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Invalid amount.</red>"); return; }
+        catch (NumberFormatException e) {
+            MessageUtil.sendRaw(sender, MessageUtil.PREFIX
+                    + " <red>Invalid amount. Example: <white>100k</white>, <white>5M</white>, <white>2B</white></red>");
+            return;
+        }
         if (amount < 0) { MessageUtil.sendRaw(sender, MessageUtil.PREFIX + " <red>Amount must be positive.</red>"); return; }
 
         switch (type) {
@@ -276,11 +286,10 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!sender.hasPermission("xdgens.admin")) return List.of();
 
-        if (args.length == 1) {
+        if (args.length == 1)
             return filter(List.of("info", "reset", "givekey", "givetag", "givecolor",
                     "givechatcolor", "giveglow",
                     "money", "tokens", "xp", "level", "prestige"), args[0]);
-        }
 
         String sub = args[0].toLowerCase();
 
@@ -298,25 +307,24 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
                 case "givecolor"     -> withWildcard(COLORS, args[2]);
                 case "givechatcolor" -> withWildcard(CHAT_COLORS, args[2]);
                 case "giveglow"      -> withWildcard(GLOWS, args[2]);
-                default              -> filterPlayers(args[2]); // modify: player
+                default              -> filterPlayers(args[2]);
             };
         }
 
         if (args.length == 4) {
             if (sub.equals("givekey")) return filter(List.of("1", "5", "10", "50"), args[3]);
-            return filter(List.of("1k", "10k", "100k", "1m", "10m", "1b"), args[3]);
+            return filter(AMOUNT_SUGGESTIONS, args[3]);
         }
 
         return List.of();
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────
+    // ── helpers ────────────────────────────────────────────────────────────────
 
     private static List<String> rewardNames(java.util.function.Predicate<CrateReward> filter) {
         return Arrays.stream(CrateReward.values()).filter(filter).map(Enum::name).toList();
     }
 
-    /** Returns the list with "*" prepended if the current input starts with it or is empty. */
     private List<String> withWildcard(List<String> base, String current) {
         java.util.List<String> merged = new java.util.ArrayList<>();
         merged.add("*");
@@ -328,7 +336,6 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         if (reward.isTag())       return reward.getCosmeticFormat();
         if (reward.isColor())     return reward.getCosmeticFormat().replace("{name}", target.getName());
         if (reward.isChatColor()) return reward.getCosmeticFormat().replace("{msg}", "Hello!");
-        // glow
         return "<yellow>\u2728 " + reward.getDisplayName() + "</yellow>";
     }
 
@@ -358,19 +365,37 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         return input.stream().filter(s -> s.toLowerCase().startsWith(lower)).toList();
     }
 
+    /**
+     * Parses an amount string with optional suffix.
+     * Supported suffixes (case-insensitive): k, m, b, t, q, qi, sx, sp, oc, no, dc,
+     *                                        udc, ddc, tdc, qdc, qic, sxc, spc, ocd, nod, vg
+     * Examples: "100k" -> 100_000  |  "5M" -> 5_000_000  |  "2Qi" -> 2_000_000_000_000_000_000
+     */
     private double parseAmount(String input) throws NumberFormatException {
-        String n = input.trim().toLowerCase().replace(",", ".");
-        char last = n.charAt(n.length() - 1);
-        double mult = 1.0;
-        if (Character.isLetter(last)) {
-            mult = switch (last) {
-                case 'k' -> 1_000D;           case 'm' -> 1_000_000D;
-                case 'b' -> 1_000_000_000D;   case 't' -> 1_000_000_000_000D;
-                default  -> throw new NumberFormatException("Unknown suffix: " + last);
-            };
-            n = n.substring(0, n.length() - 1);
+        if (input == null || input.isBlank()) throw new NumberFormatException("empty");
+        String n = input.trim().replace(",", ".");
+
+        // Try to strip any known multi-char suffix first (longest match wins)
+        record Entry(String suffix, double mult) {}
+        Entry[] entries = {
+            new Entry("vg",  1e63), new Entry("nod", 1e60), new Entry("ocd", 1e57),
+            new Entry("spc", 1e54), new Entry("sxc", 1e51), new Entry("qic", 1e48),
+            new Entry("qdc", 1e45), new Entry("tdc", 1e42), new Entry("ddc", 1e39),
+            new Entry("udc", 1e36), new Entry("dc",  1e33), new Entry("no",  1e30),
+            new Entry("oc",  1e27), new Entry("sp",  1e24), new Entry("sx",  1e21),
+            new Entry("qi",  1e18), new Entry("q",   1e15), new Entry("t",   1e12),
+            new Entry("b",   1e9),  new Entry("m",   1e6),  new Entry("k",   1e3),
+        };
+
+        String lower = n.toLowerCase();
+        for (Entry e : entries) {
+            if (lower.endsWith(e.suffix)) {
+                String num = n.substring(0, n.length() - e.suffix.length());
+                return Double.parseDouble(num) * e.mult;
+            }
         }
-        return Double.parseDouble(n) * mult;
+        // no suffix
+        return Double.parseDouble(n);
     }
 
     private void setProgressValue(Player player, String fieldName, Object value) {
@@ -413,7 +438,7 @@ public class XdAdminCommand implements CommandExecutor, TabCompleter {
         MessageUtil.sendRaw(sender, "<yellow>/xdadmin givecolor <player> <color|*>");
         MessageUtil.sendRaw(sender, "<yellow>/xdadmin givechatcolor <player> <chatcolor|*>");
         MessageUtil.sendRaw(sender, "<yellow>/xdadmin giveglow <player> <glow|*>");
-        MessageUtil.sendRaw(sender, "<dark_gray>\u2014 Economy");
+        MessageUtil.sendRaw(sender, "<dark_gray>\u2014 Economy <gray>(supports k, M, B, T, Q, Qi, Sx, Sp, Oc, No, Dc ...)");
         MessageUtil.sendRaw(sender, "<yellow>/xdadmin money/tokens/xp/level/prestige <set|add|remove> <player> <amount>");
         MessageUtil.sendRaw(sender, "<dark_gray>\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
     }
