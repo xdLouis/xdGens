@@ -91,14 +91,14 @@ public class CrateListener implements Listener {
         else item.setAmount(item.getAmount() - 1);
 
         player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.1f);
-        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Pouch opened:</green> <white>+"
+        MessageUtil.sendRaw(player, MessageUtil.PREFIX + " <green>Beutel geöffnet:</green> <white>+"
                 + NumberUtil.format(value) + " " + readable(type) + "</white>");
     }
 
     private void handleOpenOne(Player player, CrateType type) {
         if (!plugin.getVirtualKeyManager().consumeKey(player, type)) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>You don't have a " + type.getDisplayName() + " Key.</red>");
+                    + " <red>Du hast keinen " + type.getDisplayName() + " Schlüssel.</red>");
             return;
         }
         CrateManager.CrateOpenResult result = plugin.getCrateManager().openCrate(player, type);
@@ -107,7 +107,6 @@ public class CrateListener implements Listener {
         playCrateSound(player);
         sendOpenMessage(player, type, result, isNew);
 
-        // Broadcast new cosmetic to all players
         if (isNew && result.rolledCosmetic() != null) {
             broadcastCosmetics(player, type, List.of(result.rolledCosmetic()));
         }
@@ -119,7 +118,7 @@ public class CrateListener implements Listener {
         int total = plugin.getVirtualKeyManager().getKeys(player, type);
         if (total <= 0) {
             MessageUtil.sendRaw(player, MessageUtil.PREFIX
-                    + " <red>You don't have any " + type.getDisplayName() + " Keys.</red>");
+                    + " <red>Du hast keine " + type.getDisplayName() + " Schlüssel.</red>");
             return;
         }
 
@@ -157,21 +156,20 @@ public class CrateListener implements Listener {
         StringBuilder sb = new StringBuilder();
         sb.append(MessageUtil.PREFIX).append(" ")
           .append(type.getGradient()).append("<bold>").append(type.getDisplayName()).append(" Crate</bold></gradient>")
-          .append(" <gray>\u00d7 ").append(total).append(" opened</gray>");
-        sb.append("\n<dark_gray>\u250c\u2500 Pouches redeemed");
-        if (totalMoney  > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalMoney)).append("</white> <gray>Money</gray>");
+          .append(" <gray>\u00d7 ").append(total).append(" geöffnet</gray>");
+        sb.append("\n<dark_gray>\u250c\u2500 Beutel eingelöst");
+        if (totalMoney  > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalMoney)).append("</white> <gray>Geld</gray>");
         if (totalXp     > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalXp)).append("</white> <gray>XP</gray>");
         if (totalTokens > 0) sb.append("\n<dark_gray>\u2502</dark_gray> <white>+").append(NumberUtil.format(totalTokens)).append("</white> <gray>Tokens</gray>");
         if (!tierCounts.isEmpty()) {
-            sb.append("\n<dark_gray>\u2502</dark_gray> <gray>Tiers: ");
+            sb.append("\n<dark_gray>\u2502</dark_gray> <gray>Stufen: ");
             tierCounts.forEach((tier, cnt) -> sb.append(tier.getDisplayName()).append(" <dark_gray>x").append(cnt).append("</dark_gray>  "));
         }
-        if (newCosmetics > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <green>\u2728 ").append(newCosmetics).append(" new cosmetic(s) auto-unlocked!</green>");
-        if (dupVouchers  > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <yellow>").append(dupVouchers).append(" duplicate(s) stored \u2192 cash out via /cosmetics</yellow>");
+        if (newCosmetics > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <green>\u2728 ").append(newCosmetics).append(" neue(s) Cosmetic(s) freigeschaltet!</green>");
+        if (dupVouchers  > 0) sb.append("\n<dark_gray>\u251c\u2500</dark_gray> <yellow>").append(dupVouchers).append(" Duplikat(e) gespeichert \u2192 einlösen via /cosmetics</yellow>");
         sb.append("\n<dark_gray>\u2514\u2500</dark_gray>");
         MessageUtil.sendRaw(player, sb.toString());
 
-        // Broadcast all newly unlocked cosmetics in one message
         if (!newCosmeticList.isEmpty()) {
             broadcastCosmetics(player, type, newCosmeticList);
         }
@@ -179,10 +177,6 @@ public class CrateListener implements Listener {
         new CratesGUI(plugin).open(player);
     }
 
-    /**
-     * Sends a server-wide broadcast when a player unlocks one or more new cosmetics.
-     * Multiple cosmetics (multi-open) are listed in a single message.
-     */
     private void broadcastCosmetics(Player player, CrateType crateType, List<CrateReward> cosmetics) {
         StringBuilder sb = new StringBuilder();
         sb.append("<gold>\uD83C\uDF89 <white><bold>")
@@ -214,10 +208,6 @@ public class CrateListener implements Listener {
         }
     }
 
-    /**
-     * New cosmetic  → unlock, return true.
-     * Duplicate     → addVoucher (stored in manager), return false.
-     */
     private boolean autoRedeemOrStoreVoucher(Player player, CrateManager.CrateOpenResult result) {
         if (!result.hasVoucher()) return false;
         CrateReward cosmetic = result.rolledCosmetic();
@@ -231,7 +221,7 @@ public class CrateListener implements Listener {
         sb.append(MessageUtil.PREFIX).append(" ")
           .append(type.getGradient()).append(type.getDisplayName()).append(" Crate</gradient>")
           .append(" <gray>\u2502</gray> ")
-          .append(result.pouchTier().getDisplayName()).append(" <gray>Pouches</gray>");
+          .append(result.pouchTier().getDisplayName()).append(" <gray>Beutel</gray>");
         for (ItemStack pouch : result.pouches()) {
             PouchType pt  = PouchItem.getType(plugin, pouch);
             long      val = PouchItem.getValue(plugin, pouch);
@@ -241,12 +231,12 @@ public class CrateListener implements Listener {
         }
         if (result.hasVoucher()) {
             if (cosmeticIsNew) {
-                sb.append("\n  <dark_gray>\u2514</dark_gray> <green>\u2728 Auto-unlocked:</green> ")
+                sb.append("\n  <dark_gray>\u2514</dark_gray> <green>\u2728 Freigeschaltet:</green> ")
                   .append(result.rolledCosmetic().tierLabel())
                   .append(" <white>").append(result.rolledCosmetic().getDisplayName()).append("</white>");
             } else {
                 int stored = plugin.getPlayerCosmeticManager().getVoucherCount(player, result.rolledCosmetic());
-                sb.append("\n  <dark_gray>\u2514</dark_gray> <yellow>Duplicate stored:</yellow> ")
+                sb.append("\n  <dark_gray>\u2514</dark_gray> <yellow>Duplikat gespeichert:</yellow> ")
                   .append(result.rolledCosmetic().tierLabel())
                   .append(" <white>").append(result.rolledCosmetic().getDisplayName())
                   .append("</white> <dark_gray>(x").append(stored).append(" in /cosmetics)</dark_gray>");
@@ -280,6 +270,6 @@ public class CrateListener implements Listener {
     }
 
     private String readable(PouchType type) {
-        return switch (type) { case MONEY -> "Money"; case XP -> "XP"; case TOKENS -> "Tokens"; };
+        return switch (type) { case MONEY -> "Geld"; case XP -> "XP"; case TOKENS -> "Tokens"; };
     }
 }
