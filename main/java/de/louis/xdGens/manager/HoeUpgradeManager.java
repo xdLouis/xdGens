@@ -30,19 +30,12 @@ public class HoeUpgradeManager {
     public static final int TNT_REQUIRED_PRESTIGE   = 3;
 
     /**
-     * Sentinel returned by cost methods when the true cost exceeds what a long
-     * can represent reliably, or when the level is out of range.
-     * Callers must treat any value >= COST_OVERFLOW as "unaffordable".
+     * Maximum cost per level (1 Trillion tokens).
+     * Costs are capped at this value so levels always remain purchasable
+     * and no long overflow can occur even when summing 1000 levels.
+     * 1_000_000_000_000L * 1000 = 1e15 which still fits in a long.
      */
-    public static final long COST_OVERFLOW = Long.MAX_VALUE / 2;
-
-    /**
-     * Maximum raw double value we allow before declaring overflow.
-     * Long.MAX_VALUE is ~9.22e18; we cap at 1e15 (1 quadrillion tokens)
-     * which is already an astronomically large in-game cost, and leaves a
-     * safe margin so that summing up to 1000 such costs never wraps a long.
-     */
-    private static final double MAX_SAFE_COST = 1e15;
+    public static final long MAX_LEVEL_COST = 1_000_000_000_000L; // 1T
 
     private static final int[] CROP_COSTS = {
             500, 1200, 2500, 4500, 7500, 12000, 18500, 27000, 38000, 55000
@@ -210,24 +203,16 @@ public class HoeUpgradeManager {
     // ── Cost calculators ────────────────────────────────────────────────────
 
     /**
-     * Safely converts a raw double cost to a long.
-     *
-     * <p>We clamp at {@link #MAX_SAFE_COST} (1e15) <em>before</em> calling
-     * {@code Math.round()}, because Java's {@code Math.round(double)} silently
-     * wraps to {@code Long.MAX_VALUE} for inputs above ~9.22e18, and the
-     * floating-point values produced by the exponential formulas at high levels
-     * can be astronomically large well before that threshold.  Capping at 1e15
-     * ensures:
-     * <ul>
-     *   <li>The returned value always fits cleanly in a {@code long}.</li>
-     *   <li>Summing up to 1000 such costs never overflows a {@code long}.</li>
-     *   <li>The GUI always has a real, positive cost to display (or
-     *       {@link #COST_OVERFLOW} as an "unaffordable" sentinel).</li>
-     * </ul>
+     * Converts a raw double cost to a long, capped at {@link #MAX_LEVEL_COST}.
+     * This ensures:
+     * - No NaN/Infinity/negative values ever reach callers.
+     * - Costs from the exponential formula never overflow a long, even when
+     *   summed across 1000 levels (1T * 1000 = 1e15, well within long range).
+     * - Levels always remain purchasable; the cost just plateaus at 1T.
      */
     private static long safeCost(double raw) {
-        if (Double.isNaN(raw) || Double.isInfinite(raw) || raw < 0) return COST_OVERFLOW;
-        if (raw > MAX_SAFE_COST) return COST_OVERFLOW;
+        if (Double.isNaN(raw) || Double.isInfinite(raw) || raw < 0) return MAX_LEVEL_COST;
+        if (raw > MAX_LEVEL_COST) return MAX_LEVEL_COST;
         return Math.round(raw);
     }
 
@@ -291,7 +276,7 @@ public class HoeUpgradeManager {
             int  current = getPandaLevel(p);
             if (current >= MAX_PANDA_LEVEL) break;
             long cost    = getPandaCost(current + 1);
-            if (cost < 0 || cost >= COST_OVERFLOW || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             pandaLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
@@ -308,7 +293,7 @@ public class HoeUpgradeManager {
             int  current = getTntLevel(p);
             if (current >= MAX_TNT_LEVEL) break;
             long cost    = getTntCost(current + 1);
-            if (cost < 0 || cost >= COST_OVERFLOW || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             tntLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
@@ -338,7 +323,7 @@ public class HoeUpgradeManager {
             int  current = getXpLevel(p);
             if (current >= MAX_XP_LEVEL) break;
             long cost    = getXpCost(current + 1);
-            if (cost < 0 || cost >= COST_OVERFLOW || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             xpLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
@@ -352,7 +337,7 @@ public class HoeUpgradeManager {
             int  current = getTokenLevel(p);
             if (current >= MAX_TOKEN_LEVEL) break;
             long cost    = getTokenCost(current + 1);
-            if (cost < 0 || cost >= COST_OVERFLOW || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             tokenLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
@@ -366,7 +351,7 @@ public class HoeUpgradeManager {
             int  current = getKeyFinderLevel(p);
             if (current >= MAX_KEY_FINDER_LEVEL) break;
             long cost    = getKeyFinderCost(current + 1);
-            if (cost < 0 || cost >= COST_OVERFLOW || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
+            if (cost < 0 || !plugin.getCurrencyManager().removeTokens(p, cost)) break;
             keyFinderLevels.put(p.getUniqueId(), current + 1);
             bought++;
         }
