@@ -30,30 +30,37 @@ public class HoeUpgradeManager {
     public static final int TNT_REQUIRED_PRESTIGE   = 3;
 
     /**
-     * Maximum cost per level (1 Trillion tokens).
-     * Costs are capped at this value so levels always remain purchasable
-     * and no long overflow can occur even when summing 1000 levels.
-     * 1_000_000_000_000L * 1000 = 1e15 which still fits in a long.
+     * Maximum cost per level — acts as a safety net only.
+     * With EXP_SCALE = 1.007 the natural Lv-1000 cost is ~96M–350M,
+     * so this 200B cap should never be reached in normal gameplay.
+     * 200_000_000_000L * 1000 levels = 2e14, safely within long range.
      */
-    public static final long MAX_LEVEL_COST = 1_000_000_000_000L; // 1T
+    public static final long MAX_LEVEL_COST = 200_000_000_000L; // 200B
 
     private static final int[] CROP_COSTS = {
             500, 1200, 2500, 4500, 7500, 12000, 18500, 27000, 38000, 55000
     };
 
+    // ── Upgrade cost constants ──────────────────────────────────────────────
+    // EXP_SCALE deliberately set to 1.007 across all upgrades.
+    // This keeps the cost curve smooth and ensures Lv 1000 is genuinely
+    // reachable (96M–350M tokens) while still feeling like a long-term goal.
+    // Old values (1.034–1.037) caused the 1T cap to trigger at Lv ~480,
+    // making levels 481–1000 all cost exactly 1T (flat wall).
+
     private static final double XP_BASE_COST      = 750.0;
     private static final double XP_LINEAR_SCALE   = 0.18;
-    private static final double XP_EXP_SCALE      = 1.035;
+    private static final double XP_EXP_SCALE      = 1.007;
     private static final double XP_GAIN_PER_LEVEL = 0.02;
 
     private static final double TOKEN_BASE_COST      = 450.0;
     private static final double TOKEN_LINEAR_SCALE   = 0.20;
-    private static final double TOKEN_EXP_SCALE      = 1.036;
+    private static final double TOKEN_EXP_SCALE      = 1.007;
     private static final double TOKEN_GAIN_PER_LEVEL = 0.08;
 
     private static final double KEY_FINDER_BASE_COST      = 1500.0;
     private static final double KEY_FINDER_LINEAR_SCALE   = 0.22;
-    private static final double KEY_FINDER_EXP_SCALE      = 1.037;
+    private static final double KEY_FINDER_EXP_SCALE      = 1.007;
     private static final double KEY_FINDER_BASE_CHANCE    = 0.00015;
     private static final double KEY_FINDER_MAX_CHANCE     = 0.0125;
 
@@ -72,11 +79,11 @@ public class HoeUpgradeManager {
 
     private static final double PANDA_BASE_COST    = 300.0;
     private static final double PANDA_LINEAR_SCALE = 0.20;
-    private static final double PANDA_EXP_SCALE    = 1.034;
+    private static final double PANDA_EXP_SCALE    = 1.007;
 
     private static final double TNT_BASE_COST    = 500.0;
     private static final double TNT_LINEAR_SCALE = 0.20;
-    private static final double TNT_EXP_SCALE    = 1.034;
+    private static final double TNT_EXP_SCALE    = 1.007;
 
     private final Main plugin;
     private final Map<UUID, Integer> cropLevels      = new HashMap<>();
@@ -96,7 +103,7 @@ public class HoeUpgradeManager {
         loadAll();
     }
 
-    // ── I/O ────────────────────────────────────────────────────────────────────
+    // ── I/O ──────────────────────────────────────────────────────────────────────
 
     private void setup() {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
@@ -142,7 +149,7 @@ public class HoeUpgradeManager {
         catch (IOException e) { plugin.getLogger().severe("Could not save upgrades.yml: " + e.getMessage()); }
     }
 
-    // ── Getters ──────────────────────────────────────────────────────────────────
+    // ── Getters ──────────────────────────────────────────────────────────────────────
 
     public int getCropLevel(Player p)       { return getCropLevel(p.getUniqueId()); }
     public int getCropBonus(Player p)       { return getCropLevel(p); }
@@ -200,15 +207,12 @@ public class HoeUpgradeManager {
         return BASE_WALK_SPEED + ((MAX_WALK_SPEED - BASE_WALK_SPEED) * progress);
     }
 
-    // ── Cost calculators ────────────────────────────────────────────────────
+    // ── Cost calculators ──────────────────────────────────────────────────────────────────
 
     /**
      * Converts a raw double cost to a long, capped at {@link #MAX_LEVEL_COST}.
-     * This ensures:
-     * - No NaN/Infinity/negative values ever reach callers.
-     * - Costs from the exponential formula never overflow a long, even when
-     *   summed across 1000 levels (1T * 1000 = 1e15, well within long range).
-     * - Levels always remain purchasable; the cost just plateaus at 1T.
+     * With EXP_SCALE = 1.007 the natural maximum (Lv 1000) is ~96M–350M,
+     * so this cap acts as a pure safety net and should never be hit.
      */
     private static long safeCost(double raw) {
         if (Double.isNaN(raw) || Double.isInfinite(raw) || raw < 0) return MAX_LEVEL_COST;
@@ -251,7 +255,7 @@ public class HoeUpgradeManager {
         return safeCost(TNT_BASE_COST * (1.0 + TNT_LINEAR_SCALE * targetLevel) * Math.pow(TNT_EXP_SCALE, targetLevel - 1));
     }
 
-    // ── Upgrade methods ───────────────────────────────────────────────────
+    // ── Upgrade methods ─────────────────────────────────────────────────────────────────────
 
     public boolean upgradeCrop(Player p)      { return upgradeCropBulk(p, 1) == 1; }
     public boolean upgradeXp(Player p)        { return upgradeXpBulk(p, 1) == 1; }
@@ -370,7 +374,7 @@ public class HoeUpgradeManager {
         p.getInventory().setItemInMainHand(HoeUtil.updateHoeItem(plugin, mainHand, getHoeLevel(p)));
     }
 
-    // ── Internal helpers ──────────────────────────────────────────────────
+    // ── Internal helpers ────────────────────────────────────────────────────────────────────
 
     private Material getHoeMaterial(int level) {
         int group = (level - 1) / 3;

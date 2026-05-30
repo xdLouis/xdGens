@@ -20,14 +20,33 @@ import java.util.*;
  * – Adult size (no setBaby())
  * – Breaks nearby fully-grown wheat every 1 s in a ±4 block radius
  * – Wanders around the field by giving it a new move target every 3 s
- * – Pays a FIXED token + XP reward based on panda level × prestige multiplier
+ * – Pays a token reward that scales with panda level, and a FLAT XP reward
+ *   so that higher panda levels do not trivialise prestige progression.
+ *
+ * XP design intent:
+ *   BASE_XP_REWARD is intentionally flat (not multiplied by pandaLevel).
+ *   At Prestige 3 one session gives ~2.5% of the XP needed for a prestige,
+ *   so ~8 panda triggers ≈ 20% of a prestige — a nice bonus, not a skip.
+ *   Token rewards still scale linearly with panda level so players feel
+ *   the difference between a low-level and high-level panda.
  */
 public class PandaRollSession {
 
     private static final Map<UUID, PandaRollSession> ACTIVE = new HashMap<>();
 
+    /**
+     * Token reward scales with panda level: flatTokens = BASE_TOKEN_REWARD * pandaLevel * prestigeMult.
+     * A Lv-10 panda at Prestige 3 gives 1500 * 10 * 1.3 = 19 500 tokens.
+     */
     private static final double BASE_TOKEN_REWARD = 1500.0;
-    private static final double BASE_XP_REWARD    = 2000.0;
+
+    /**
+     * XP reward is FLAT — independent of panda level.
+     * flatXp = BASE_XP_REWARD * prestigeMult  (panda level NOT multiplied in).
+     * This prevents high-level pandas from trivialising prestige progression.
+     * At Prestige 3: 2000 * 1.3 = 2600 XP per session ≈ 2.5% of a prestige.
+     */
+    private static final double BASE_XP_REWARD = 2000.0;
 
     /** How often (in ticks) the panda tries to break wheat. */
     private static final long WHEAT_BREAK_INTERVAL = 20L; // every 1 s
@@ -59,7 +78,7 @@ public class PandaRollSession {
 
     public static void addHarvest(UUID uuid, long tokens, double xp) { /* no-op */ }
 
-    // ── Session lifecycle ───────────────────────────────────────────────
+    // ── Session lifecycle ─────────────────────────────────────────────────────────────
 
     public void start() {
         if (ACTIVE.containsKey(player.getUniqueId())) return;
@@ -117,7 +136,7 @@ public class PandaRollSession {
         }.runTaskTimer(plugin, 0L, 4L);
     }
 
-    // ── Wandering ────────────────────────────────────────────────────────
+    // ── Wandering ────────────────────────────────────────────────────────────────────
 
     private void wander(Location center) {
         if (panda == null || !panda.isValid()) return;
@@ -132,7 +151,7 @@ public class PandaRollSession {
         panda.getPathfinder().moveTo(new Location(world, tx + 0.5, ty, tz + 0.5), 1.0);
     }
 
-    // ── Wheat breaking ──────────────────────────────────────────────────
+    // ── Wheat breaking ──────────────────────────────────────────────────────────────────
 
     private void breakNearbyWheat(Location center) {
         World world = center.getWorld();
@@ -186,7 +205,7 @@ public class PandaRollSession {
         }, delay);
     }
 
-    // ── Particles ────────────────────────────────────────────────────────
+    // ── Particles ────────────────────────────────────────────────────────────────────
 
     private void spawnCropParticles(Location center) {
         World world = center.getWorld();
@@ -208,7 +227,7 @@ public class PandaRollSession {
         }
     }
 
-    // ── Finish / reward ──────────────────────────────────────────────────
+    // ── Finish / reward ──────────────────────────────────────────────────────────────────
 
     private void finish() {
         ACTIVE.remove(player.getUniqueId());
@@ -216,8 +235,12 @@ public class PandaRollSession {
         if (task  != null) { try { task.cancel(); } catch (Exception ignored) {} }
 
         double prestigeMult = plugin.getProgressionManager().getPrestigeTokenMultiplier(player);
-        long   flatTokens   = Math.round(BASE_TOKEN_REWARD * pandaLevel * prestigeMult);
-        double flatXp       = BASE_XP_REWARD * pandaLevel * prestigeMult;
+
+        // Tokens scale with panda level — higher level panda = bigger token haul
+        long flatTokens = Math.round(BASE_TOKEN_REWARD * pandaLevel * prestigeMult);
+
+        // XP is flat — independent of panda level to prevent prestige skipping
+        double flatXp = BASE_XP_REWARD * prestigeMult;
 
         player.playSound(player.getLocation(), Sound.ENTITY_PANDA_SNEEZE, 1f, 1.0f);
         player.spawnParticle(Particle.HAPPY_VILLAGER,
