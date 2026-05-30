@@ -29,6 +29,9 @@ public class HoeUpgradeManager {
     public static final int PANDA_REQUIRED_PRESTIGE = 3;
     public static final int TNT_REQUIRED_PRESTIGE   = 3;
 
+    /** Sentinel: cost is too large to represent — treat as unaffordable. */
+    public static final long COST_OVERFLOW = Long.MAX_VALUE / 2;
+
     private static final int[] CROP_COSTS = {
             500, 1200, 2500, 4500, 7500, 12000, 18500, 27000, 38000, 55000
     };
@@ -194,6 +197,18 @@ public class HoeUpgradeManager {
 
     // ── Cost calculators ────────────────────────────────────────────────────
 
+    /**
+     * Safely converts a raw double cost to a long.
+     * If the value is NaN, Infinite, negative, or would overflow long,
+     * returns COST_OVERFLOW instead — so callers always get a positive value
+     * and can treat it as "too expensive".
+     */
+    private static long safeCost(double raw) {
+        if (Double.isNaN(raw) || Double.isInfinite(raw) || raw < 0) return COST_OVERFLOW;
+        long v = Math.round(raw);
+        return v < 0 ? COST_OVERFLOW : v;
+    }
+
     public int getCropCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_CROP_LEVEL) return -1;
         return CROP_COSTS[targetLevel - 1];
@@ -201,17 +216,17 @@ public class HoeUpgradeManager {
 
     public long getXpCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_XP_LEVEL) return -1;
-        return Math.round(XP_BASE_COST * (1.0 + XP_LINEAR_SCALE * targetLevel) * Math.pow(XP_EXP_SCALE, targetLevel - 1));
+        return safeCost(XP_BASE_COST * (1.0 + XP_LINEAR_SCALE * targetLevel) * Math.pow(XP_EXP_SCALE, targetLevel - 1));
     }
 
     public long getTokenCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_TOKEN_LEVEL) return -1;
-        return Math.round(TOKEN_BASE_COST * (1.0 + TOKEN_LINEAR_SCALE * targetLevel) * Math.pow(TOKEN_EXP_SCALE, targetLevel - 1));
+        return safeCost(TOKEN_BASE_COST * (1.0 + TOKEN_LINEAR_SCALE * targetLevel) * Math.pow(TOKEN_EXP_SCALE, targetLevel - 1));
     }
 
     public long getKeyFinderCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_KEY_FINDER_LEVEL) return -1;
-        return Math.round(KEY_FINDER_BASE_COST * (1.0 + KEY_FINDER_LINEAR_SCALE * targetLevel) * Math.pow(KEY_FINDER_EXP_SCALE, targetLevel - 1));
+        return safeCost(KEY_FINDER_BASE_COST * (1.0 + KEY_FINDER_LINEAR_SCALE * targetLevel) * Math.pow(KEY_FINDER_EXP_SCALE, targetLevel - 1));
     }
 
     public long getHoeCost(int targetLevel) {
@@ -221,12 +236,12 @@ public class HoeUpgradeManager {
 
     public long getPandaCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_PANDA_LEVEL) return -1;
-        return Math.round(PANDA_BASE_COST * (1.0 + PANDA_LINEAR_SCALE * targetLevel) * Math.pow(PANDA_EXP_SCALE, targetLevel - 1));
+        return safeCost(PANDA_BASE_COST * (1.0 + PANDA_LINEAR_SCALE * targetLevel) * Math.pow(PANDA_EXP_SCALE, targetLevel - 1));
     }
 
     public long getTntCost(int targetLevel) {
         if (targetLevel < 1 || targetLevel > MAX_TNT_LEVEL) return -1;
-        return Math.round(TNT_BASE_COST * (1.0 + TNT_LINEAR_SCALE * targetLevel) * Math.pow(TNT_EXP_SCALE, targetLevel - 1));
+        return safeCost(TNT_BASE_COST * (1.0 + TNT_LINEAR_SCALE * targetLevel) * Math.pow(TNT_EXP_SCALE, targetLevel - 1));
     }
 
     // ── Upgrade methods ───────────────────────────────────────────────────
