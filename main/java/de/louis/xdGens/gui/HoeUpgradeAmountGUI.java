@@ -142,24 +142,21 @@ public class HoeUpgradeAmountGUI {
 
     private ItemStack buildAmountItem(int amount, int current, int max, long tokens, boolean maxed) {
         int  realAmount = Math.min(amount, max - current);
-        long cost       = 0;
-        if (!maxed && realAmount > 0)
-            for (int i = 1; i <= realAmount; i++) cost += Math.max(0, nextCost(current + i - 1));
-
-        boolean canAfford = !maxed && realAmount > 0 && tokens >= cost;
-        boolean possible  = !maxed && realAmount > 0;
+        long cost       = totalCost(current, realAmount);
+        boolean valid     = !maxed && realAmount > 0 && cost >= 0;
+        boolean canAfford = valid && tokens >= cost;
 
         Material  mat  = canAfford ? amountMaterialGreen(amount) : amountMaterialRed(amount);
         ItemStack item = new ItemStack(mat);
         ItemMeta  meta = item.getItemMeta();
 
-        String titleColor = canAfford ? "<green>" : (possible ? "<red>" : "<dark_gray>");
+        String titleColor = canAfford ? "<green>" : (valid ? "<red>" : "<dark_gray>");
         meta.displayName(MessageUtil.parse(titleColor + "<bold>+" + amount + " Level</bold>"));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
-        if (!possible) {
-            lore.add(MessageUtil.parse("<gold>\u2605 Already maxed out"));
+        if (!valid) {
+            lore.add(MessageUtil.parse(maxed ? "<gold>\u2605 Already maxed out" : "<red>\u2718 Not available"));
         } else {
             lore.add(MessageUtil.parse("<dark_gray>" + current + " \u27a1 " + (current + realAmount)
                     + (realAmount < amount ? " <dark_gray>(capped)" : "")));
@@ -198,8 +195,7 @@ public class HoeUpgradeAmountGUI {
             long nextCost = nextCost(current);
             lore.add(MessageUtil.parse("<gray>Need   <white>" + NumberUtil.format(nextCost) + " Tokens"));
         } else {
-            long cost = 0;
-            for (int i = 1; i <= affordable; i++) cost += Math.max(0, nextCost(current + i - 1));
+            long cost       = totalCost(current, affordable);
             boolean isRealMax = (current + affordable) >= max;
 
             meta.displayName(MessageUtil.parse(gradient() + "<bold>MAX  <white>(" + affordable
@@ -239,12 +235,29 @@ public class HoeUpgradeAmountGUI {
     //  Helpers
     // ────────────────────────────────────────────────────────────────────
 
+    /**
+     * Returns the total cost for buying {@code count} levels starting from {@code fromLevel}.
+     * Returns -1 if any individual level cost is invalid or would overflow.
+     */
+    private long totalCost(int fromLevel, int count) {
+        long total = 0;
+        for (int i = 0; i < count; i++) {
+            long c = nextCost(fromLevel + i);
+            // c == -1 means out-of-range; c == COST_OVERFLOW means astronomically expensive
+            if (c < 0 || c == HoeUpgradeManager.COST_OVERFLOW) return -1;
+            total += c;
+            // guard against summing multiple large values overflowing long
+            if (total < 0) return -1;
+        }
+        return total;
+    }
+
     private int computeAffordable(int current, int max, long tokens) {
         long budget    = tokens;
         int  remaining = max - current;
-        for (int i = 1; i <= remaining; i++) {
-            long c = nextCost(current + i - 1);
-            if (c < 0 || budget < c) return i - 1;
+        for (int i = 0; i < remaining; i++) {
+            long c = nextCost(current + i);
+            if (c < 0 || c == HoeUpgradeManager.COST_OVERFLOW || budget < c) return i;
             budget -= c;
         }
         return remaining;
